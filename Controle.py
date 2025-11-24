@@ -593,7 +593,7 @@ def main():
                 conn.close()
 
                 st.success("Alterações salvas com sucesso!")
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
 
