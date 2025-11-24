@@ -249,10 +249,11 @@ def main():
     
         st.header("Novo lançamento")
     
-        with st.form("novo_lancamento", clear_on_submit=True):
-            t_type = st.selectbox("Tipo", ["entrada", "saida"])
+        # 👉 Tipo fora do form, assim a tela reativa funciona
+        t_type = st.radio("Tipo", ["entrada", "saida"], horizontal=True)
     
-            # Se for entrada, usa categorias de entrada
+        with st.form("novo_lancamento", clear_on_submit=True):
+            # Decide a lista de categorias com base no tipo já escolhido
             if t_type == "entrada":
                 cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
             else:
