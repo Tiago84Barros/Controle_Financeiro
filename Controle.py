@@ -206,6 +206,7 @@ def main():
     )
 
     apply_custom_style()
+    
     init_db()
 
     # Sidebar - filtros e data de referência
