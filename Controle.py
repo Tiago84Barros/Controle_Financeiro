@@ -112,7 +112,7 @@ def compute_summary(df, ref_date):
 
     return resumo, df_cat, df_hist_pivot
 
-# ---------- App Streamlit ----------
+# ---------- Estilo visual ----------
 
 def apply_custom_style():
     st.markdown(
@@ -142,6 +142,9 @@ def apply_custom_style():
             font-size: 0.9rem;
             color: #9ca3af;
             margin-top: 0.15rem;
+        }
+        .cf-subtitle strong {
+            color: #e5e7eb;
         }
         .cf-pill {
             font-size: 0.8rem;
@@ -197,6 +200,7 @@ def apply_custom_style():
         unsafe_allow_html=True,
     )
 
+# ---------- App Streamlit ----------
 
 def main():
     st.set_page_config(
@@ -206,10 +210,9 @@ def main():
     )
 
     apply_custom_style()
-    
     init_db()
 
-    # Sidebar - filtros e data de referência
+    # --- SIDEBAR ---
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
@@ -247,22 +250,83 @@ def main():
                 else:
                     st.error("Preencha pelo menos categoria e valor maior que zero.")
 
-    # Carregar dados
+    # --- DADOS ---
     df = load_data()
     resumo, df_cat, df_hist = compute_summary(df, ref_date)
 
-    # ---------- Cards Resumo ----------
-    st.subheader(f"Resumo do mês: {ref_date.month:02d}/{ref_date.year}")
+    # --- HEADER NOVO ---
+    st.markdown(
+        f"""
+        <div class="cf-header">
+            <div>
+                <h1 class="cf-title">💰 Controle Financeiro</h1>
+                <p class="cf-subtitle">
+                    Visão geral de <strong>{ref_date.month:02d}/{ref_date.year}</strong> • acompanhe renda, despesas e saldo em tempo real
+                </p>
+            </div>
+            <div>
+                <span class="cf-pill">
+                    Mês atual: {ref_date.strftime("%b %Y")}
+                </span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # --- CARDS DE RESUMO ---
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Renda do mês", f"R$ {resumo['total_entrada']:.2f}")
-    col2.metric("Despesas do mês", f"R$ {resumo['total_saida']:.2f}")
-    col3.metric("Saldo do mês", f"R$ {resumo['saldo']:.2f}")
-    col4.metric("Renda comprometida", f"{resumo['perc_comprometido']:.1f}%")
+
+    col1.markdown(
+        f"""
+        <div class="cf-card cf-card-income">
+            <div class="cf-card-label">Renda do mês</div>
+            <div class="cf-card-value">R$ {resumo['total_entrada']:.2f}</div>
+            <div class="cf-card-extra">Somatório de todas as entradas no período selecionado.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col2.markdown(
+        f"""
+        <div class="cf-card cf-card-expense">
+            <div class="cf-card-label">Despesas do mês</div>
+            <div class="cf-card-value">R$ {resumo['total_saida']:.2f}</div>
+            <div class="cf-card-extra">Somatório de todas as saídas no período.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    saldo_class = "cf-card-balance-positive" if resumo["saldo"] >= 0 else "cf-card-balance-negative"
+    saldo_label_extra = "Sobrou dinheiro este mês. 👏" if resumo["saldo"] >= 0 else "Atenção: você gastou mais do que ganhou."
+
+    col3.markdown(
+        f"""
+        <div class="cf-card {saldo_class}">
+            <div class="cf-card-label">Saldo do mês</div>
+            <div class="cf-card-value">R$ {resumo['saldo']:.2f}</div>
+            <div class="cf-card-extra">{saldo_label_extra}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col4.markdown(
+        f"""
+        <div class="cf-card cf-card-ratio">
+            <div class="cf-card-label">Renda comprometida</div>
+            <div class="cf-card-value">{resumo['perc_comprometido']:.1f}%</div>
+            <div class="cf-card-extra">Percentual da renda usada para despesas no mês.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown("---")
 
-    # ---------- Gráficos ----------
+    # ---------- GRÁFICOS ----------
     col_g1, col_g2 = st.columns(2)
 
     with col_g1:
@@ -289,7 +353,7 @@ def main():
 
     st.markdown("---")
 
-    # ---------- Últimos lançamentos ----------
+    # ---------- ÚLTIMOS LANÇAMENTOS ----------
     st.markdown("### Últimos lançamentos")
     if not df.empty:
         df_sorted = df.sort_values("date", ascending=False).head(20)
