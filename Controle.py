@@ -421,12 +421,21 @@ def main():
     )
     
     saldo_class = "cf-card-balance-positive" if resumo["saldo"] >= 0 else "cf-card-balance-negative"
-    saldo_label_extra = "Sobrou dinheiro este mês. 👏" if resumo["saldo"] >= 0 else "Atenção: você gastou mais do que ganhou."
+    if resumo["saldo"] >= 0:
+        saldo_label_extra = (
+            f"Sobrou dinheiro este mês. 👏<br/>"
+            f"Investido no mês: {format_brl(resumo['total_investimento'])}"
+        )
+    else:
+        saldo_label_extra = (
+            f"Atenção: você gastou + investiu mais do que ganhou.<br/>"
+            f"Investido no mês: {format_brl(resumo['total_investimento'])}"
+        )
     
     col3.markdown(
         f"""
         <div class="cf-card {saldo_class}">
-            <div class="cf-card-label">Saldo do mês</div>
+            <div class="cf-card-label">Saldo líquido do mês</div>
             <div class="cf-card-value">{format_brl(resumo['saldo'])}</div>
             <div class="cf-card-extra">{saldo_label_extra}</div>
         </div>
@@ -439,7 +448,9 @@ def main():
         <div class="cf-card cf-card-ratio">
             <div class="cf-card-label">Renda comprometida</div>
             <div class="cf-card-value">{format_percent(resumo['perc_comprometido'])}</div>
-            <div class="cf-card-extra">Percentual da renda usada para despesas no mês.</div>
+            <div class="cf-card-extra">
+                Considera despesas + investimentos em relação à renda do mês.
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
