@@ -454,13 +454,14 @@ def main():
     with col_g1:
         st.markdown("#### Gastos por categoria (mês)")
         if not df_cat.empty:
+            # -------- Gráfico em barras (vermelho) --------
             df_cat_chart = df_cat.set_index("category")
     
             import altair as alt
     
             chart = (
                 alt.Chart(df_cat_chart.reset_index())
-                .mark_bar(color="#ff4d4d")  # vermelho
+                .mark_bar(color="#ff4d4d")  # barras vermelhas
                 .encode(
                     x=alt.X("category:N", title="Categoria", sort="-y"),
                     y=alt.Y("amount:Q", title="Valor (R$)")
@@ -470,16 +471,40 @@ def main():
     
             st.altair_chart(chart, use_container_width=True)
     
-            # tabela formatada
-            df_cat_fmt = df_cat.rename(columns={"category": "Categoria", "amount": "Valor (R$)"}).copy()
+            # -------- Tabela formatada com % da renda --------
+            df_cat_fmt = df_cat.copy()
+    
+            # calcula percentual da renda para cada categoria
+            if resumo["total_entrada"] > 0:
+                df_cat_fmt["percent_renda"] = (df_cat_fmt["amount"] / resumo["total_entrada"]) * 100
+            else:
+                df_cat_fmt["percent_renda"] = 0.0
+    
+            # renomeia colunas para exibição
+            df_cat_fmt = df_cat_fmt.rename(
+                columns={
+                    "category": "Categoria",
+                    "amount": "Valor (R$)",
+                    "percent_renda": "% da renda",
+                }
+            )
+    
+            # formata valores em R$ (pt-BR)
             df_cat_fmt["Valor (R$)"] = df_cat_fmt["Valor (R$)"].apply(
                 lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
     
-            st.dataframe(df_cat_fmt, use_container_width=True)
+            # formata percentual usando a função que você já tem
+            df_cat_fmt["% da renda"] = df_cat_fmt["% da renda"].apply(format_percent)
+    
+            # remove índice numérico e reinicia para não aparecer a coluna de números
+            df_cat_fmt = df_cat_fmt.reset_index(drop=True)
+    
+            st.dataframe(df_cat_fmt, use_container_width=True, hide_index=True)
     
         else:
             st.info("Não há despesas cadastradas neste mês.")
+
         
     with col_g2:
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas)")
