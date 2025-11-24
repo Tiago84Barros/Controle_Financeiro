@@ -550,6 +550,8 @@ def main():
         # Tabela para visualização (read-only), com data e valor formatados
         df_view = df_sorted.copy()
         df_view["date"] = df_view["date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+
+        # renomeia colunas para exibição
         df_view = df_view.rename(
             columns={
                 "type": "Tipo",
@@ -562,16 +564,22 @@ def main():
                 "description": "Descrição",
             }
         )
+
         # formata o valor em R$
         df_view["Valor (R$)"] = df_view["Valor (R$)"].apply(
             lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
 
+        # 🔹 escolhe explicitamente as colunas e ordem:
+        df_view = df_view[
+            ["Tipo", "Categoria", "Data", "Valor (R$)", "Forma", "Cartão", "Parcelas", "Descrição"]
+        ]
+
         edit_mode = st.checkbox("Habilitar edição dos últimos lançamentos")
 
         if not edit_mode:
-            # modo somente leitura
-            st.dataframe(df_view, use_container_width=True)
+            # modo somente leitura, sem índice numérico
+            st.dataframe(df_view, use_container_width=True, hide_index=True)
         else:
             st.info("Edite as linhas desejadas e clique em **Salvar alterações** para gravar no banco.")
 
