@@ -1,4 +1,3 @@
-
 import streamlit as st
 import sqlite3
 from datetime import date
@@ -6,6 +5,8 @@ from dateutil.relativedelta import relativedelta
 import pandas as pd
 
 DB_PATH = "finance.db"
+
+# ---------- Banco de Dados ----------
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -17,12 +18,12 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL,
-            category TEXT NOT NULL,
-            date TEXT NOT NULL,
+            type TEXT NOT NULL,              -- 'entrada' ou 'saida'
+            category TEXT NOT NULL,          -- Ex: 'Salário', 'Mercado'
+            date TEXT NOT NULL,              -- 'YYYY-MM-DD'
             amount REAL NOT NULL,
-            payment_type TEXT NOT NULL,
-            card_name TEXT,
+            payment_type TEXT NOT NULL,      -- 'Conta', 'Cartão', 'Dinheiro', etc
+            card_name TEXT,                  -- opcional
             installments INTEGER DEFAULT 1,
             description TEXT
         );
@@ -52,6 +53,8 @@ def load_data():
         df["date"] = pd.to_datetime(df["date"]).dt.date
     return df
 
+# ---------- Lógica de Resumo ----------
+
 def get_month_range(target_date=None):
     if target_date is None:
         target_date = date.today()
@@ -78,6 +81,7 @@ def compute_summary(df, ref_date):
     saldo = total_entrada - total_saida
     perc_comprometido = (total_saida / total_entrada * 100) if total_entrada > 0 else 0
 
+    # Despesas por categoria no mês
     df_cat = (
         df_month[df_month["type"] == "saida"]
         .groupby("category")["amount"]
@@ -86,6 +90,7 @@ def compute_summary(df, ref_date):
         .sort_values("amount", ascending=False)
     )
 
+    # Histórico últimos 6 meses
     six_months_ago = first_day - relativedelta(months=5)
     mask_hist = (df["date"] >= six_months_ago) & (df["date"] <= last_day)
     df_hist = df[mask_hist].copy()
@@ -107,6 +112,8 @@ def compute_summary(df, ref_date):
 
     return resumo, df_cat, df_hist_pivot
 
+# ---------- App Streamlit ----------
+
 def main():
     st.set_page_config(
         page_title="Dashboard Financeiro",
@@ -118,6 +125,7 @@ def main():
 
     st.title("💰 Dashboard Financeiro")
 
+    # Sidebar - filtros e data de referência
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
@@ -155,20 +163,22 @@ def main():
                 else:
                     st.error("Preencha pelo menos categoria e valor maior que zero.")
 
+    # Carregar dados
     df = load_data()
     resumo, df_cat, df_hist = compute_summary(df, ref_date)
 
+    # ---------- Cards Resumo ----------
     st.subheader(f"Resumo do mês: {ref_date.month:02d}/{ref_date.year}")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Renda do mês", f"R$ {resumo['total_entrada']:.2f}")
     col2.metric("Despesas do mês", f"R$ {resumo['total_saida']:.2f}")
-    saldo_value = f"R$ {resumo['saldo']:.2f}"
-    col3.metric("Saldo do mês", saldo_value)
+    col3.metric("Saldo do mês", f"R$ {resumo['saldo']:.2f}")
     col4.metric("Renda comprometida", f"{resumo['perc_comprometido']:.1f}%")
 
     st.markdown("---")
 
+    # ---------- Gráficos ----------
     col_g1, col_g2 = st.columns(2)
 
     with col_g1:
@@ -195,6 +205,7 @@ def main():
 
     st.markdown("---")
 
+    # ---------- Últimos lançamentos ----------
     st.markdown("### Últimos lançamentos")
     if not df.empty:
         df_sorted = df.sort_values("date", ascending=False).head(20)
