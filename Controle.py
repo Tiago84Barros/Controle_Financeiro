@@ -126,6 +126,22 @@ def format_percent(value: float) -> str:
     """
     return f"{value:,.1f}%".replace(",", "X").replace(".", ",").replace("X", ".")
 
+def parse_brl_to_float(valor_str: str) -> float:
+    """
+    Converte string em formato brasileiro (23.306,10) para float (23306.10).
+    Aceita também 'R$ 23.306,10', espaços etc.
+    """
+    if not valor_str:
+        return 0.0
+    s = valor_str.strip()
+    s = s.replace("R$", "").strip()
+    s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
 
 # ---------- Estilo visual ----------
 
@@ -280,7 +296,8 @@ def main():
                 category = cat_choice
     
             d = st.date_input("Data", value=today, format="DD/MM/YYYY", key="data_lanc")
-            amount = st.number_input("Valor (R$)", min_value=0.0, step=10.0, format="%.2f")
+            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
+
     
             payment_type = st.selectbox(
                 "Forma de pagamento", ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
@@ -295,8 +312,10 @@ def main():
             description = st.text_area("Descrição (opcional)")
     
             submitted = st.form_submit_button("Salvar lançamento")
-    
+
             if submitted:
+                amount = parse_brl_to_float(valor_str)
+            
                 if amount > 0 and category.strip():
                     insert_transaction(
                         t_type,
@@ -311,6 +330,7 @@ def main():
                     st.success("Lançamento salvo com sucesso!")
                 else:
                     st.error("Preencha pelo menos categoria e valor maior que zero.")
+
 
     # --- DADOS ---
     df = load_data()
