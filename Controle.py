@@ -392,7 +392,7 @@ def main():
     # ---------- GRÁFICOS ----------
     col_g1, col_g2 = st.columns(2)
 
-    with col_g1:
+   with col_g1:
         st.markdown("#### Gastos por categoria (mês)")
         if not df_cat.empty:
             df_cat_chart = df_cat.set_index("category")
