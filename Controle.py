@@ -362,6 +362,7 @@ def main():
 
     # --- DADOS ---
     df = load_data()
+       
     resumo, df_cat, df_hist = compute_summary(df, ref_date)
 
     # --- HEADER NOVO ---
@@ -483,7 +484,28 @@ def main():
 
     if not df.empty:
         # pega os 20 últimos
-        df_sorted = df.sort_values("date", ascending=False).head(20).copy()
+        # 🔹 Ordem personalizada para o tipo:
+        # entrada → investimento → saída
+        type_order = {
+            "entrada": 0,
+            "investimento": 1,
+            "saida": 2,
+        }
+
+        df_sorted = df.copy()
+        df_sorted["type_order"] = df_sorted["type"].map(type_order).fillna(99)
+
+        # 🔹 Ordenação final:
+        # 1) Tipo (ordem personalizada)
+        # 2) Categoria (A → Z)
+        # 3) Data (mais recente primeiro)
+        df_sorted = df_sorted.sort_values(
+            by=["type_order", "category", "date"],
+            ascending=[True, True, False],
+        ).head(20)
+
+        # remove coluna auxiliar
+        df_sorted = df_sorted.drop(columns=["type_order"])
 
         # Tabela para visualização (read-only), com data e valor formatados
         df_view = df_sorted.copy()
