@@ -214,88 +214,88 @@ def main():
 
     # --- SIDEBAR ---
     with st.sidebar:
-    st.header("Filtros")
-    today = date.today()
-    ref_date = st.date_input("Mês de referência", value=today)
-    st.markdown("---")
-
-    # Categorias pré-definidas
-    income_categories = [
-        "Salário",
-        "Renda Extra",
-        "Dividendos",
-        "Reembolso",
-        "Outros"
-    ]
-
-    expense_categories = [
-        "Mercado",
-        "Água",
-        "Luz",
-        "Internet",
-        "Transporte",
-        "Combustível",
-        "Saúde",
-        "Farmácia",
-        "Lazer",
-        "Assinaturas",
-        "Educação",
-        "Restaurante",
-        "Roupas",
-        "Viagem",
-        "Casa",
-        "Outros"
-    ]
-
-    st.header("Novo lançamento")
-
-    with st.form("novo_lancamento", clear_on_submit=True):
-        t_type = st.selectbox("Tipo", ["entrada", "saida"])
-
-        # Se for entrada, usa categorias de entrada
-        if t_type == "entrada":
-            cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
-        else:
-            cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
-
-        # Se escolher "Outra", mostra campo para digitar manualmente
-        if cat_choice == "Outra":
-            category = st.text_input("Categoria personalizada")
-        else:
-            category = cat_choice
-
-        d = st.date_input("Data", value=today, key="data_lanc")
-        amount = st.number_input("Valor (R$)", min_value=0.0, step=10.0, format="%.2f")
-
-        payment_type = st.selectbox(
-            "Forma de pagamento", ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
-        )
-
-        card_name = ""
-        installments = 1
-        if payment_type == "Cartão de crédito":
-            card_name = st.text_input("Nome do cartão")
-            installments = st.number_input("Parcelas", min_value=1, value=1, step=1)
-
-        description = st.text_area("Descrição (opcional)")
-
-        submitted = st.form_submit_button("Salvar lançamento")
-
-        if submitted:
-            if amount > 0 and category.strip():
-                insert_transaction(
-                    t_type,
-                    category.strip(),
-                    d.isoformat(),
-                    float(amount),
-                    payment_type,
-                    card_name.strip() or None,
-                    int(installments),
-                    description.strip(),
-                )
-                st.success("Lançamento salvo com sucesso!")
+        st.header("Filtros")
+        today = date.today()
+        ref_date = st.date_input("Mês de referência", value=today)
+        st.markdown("---")
+    
+        # Categorias pré-definidas
+        income_categories = [
+            "Salário",
+            "Renda Extra",
+            "Dividendos",
+            "Reembolso",
+            "Outros"
+        ]
+    
+        expense_categories = [
+            "Mercado",
+            "Água",
+            "Luz",
+            "Internet",
+            "Transporte",
+            "Combustível",
+            "Saúde",
+            "Farmácia",
+            "Lazer",
+            "Assinaturas",
+            "Educação",
+            "Restaurante",
+            "Roupas",
+            "Viagem",
+            "Casa",
+            "Outros"
+        ]
+    
+        st.header("Novo lançamento")
+    
+        with st.form("novo_lancamento", clear_on_submit=True):
+            t_type = st.selectbox("Tipo", ["entrada", "saida"])
+    
+            # Se for entrada, usa categorias de entrada
+            if t_type == "entrada":
+                cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
             else:
-                st.error("Preencha pelo menos categoria e valor maior que zero.")
+                cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
+    
+            # Se escolher "Outra", mostra campo para digitar manualmente
+            if cat_choice == "Outra":
+                category = st.text_input("Categoria personalizada")
+            else:
+                category = cat_choice
+    
+            d = st.date_input("Data", value=today, key="data_lanc")
+            amount = st.number_input("Valor (R$)", min_value=0.0, step=10.0, format="%.2f")
+    
+            payment_type = st.selectbox(
+                "Forma de pagamento", ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
+            )
+    
+            card_name = ""
+            installments = 1
+            if payment_type == "Cartão de crédito":
+                card_name = st.text_input("Nome do cartão")
+                installments = st.number_input("Parcelas", min_value=1, value=1, step=1)
+    
+            description = st.text_area("Descrição (opcional)")
+    
+            submitted = st.form_submit_button("Salvar lançamento")
+    
+            if submitted:
+                if amount > 0 and category.strip():
+                    insert_transaction(
+                        t_type,
+                        category.strip(),
+                        d.isoformat(),
+                        float(amount),
+                        payment_type,
+                        card_name.strip() or None,
+                        int(installments),
+                        description.strip(),
+                    )
+                    st.success("Lançamento salvo com sucesso!")
+                else:
+                    st.error("Preencha pelo menos categoria e valor maior que zero.")
 
     # --- DADOS ---
     df = load_data()
