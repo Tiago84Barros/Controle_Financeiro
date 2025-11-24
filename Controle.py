@@ -112,6 +112,21 @@ def compute_summary(df, ref_date):
 
     return resumo, df_cat, df_hist_pivot
 
+# ---------- Formatação BRL ----------
+
+def format_brl(value: float) -> str:
+    """
+    Formata número no padrão brasileiro: R$ 23.306,10
+    """
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def format_percent(value: float) -> str:
+    """
+    Formata percentual no padrão brasileiro: 23,4%
+    """
+    return f"{value:,.1f}%".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 # ---------- Estilo visual ----------
 
 def apply_custom_style():
@@ -329,43 +344,43 @@ def main():
         f"""
         <div class="cf-card cf-card-income">
             <div class="cf-card-label">Renda do mês</div>
-            <div class="cf-card-value">R$ {resumo['total_entrada']:.2f}</div>
+            <div class="cf-card-value">{format_brl(resumo['total_entrada'])}</div>
             <div class="cf-card-extra">Somatório de todas as entradas no período selecionado.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
+    
     col2.markdown(
         f"""
         <div class="cf-card cf-card-expense">
             <div class="cf-card-label">Despesas do mês</div>
-            <div class="cf-card-value">R$ {resumo['total_saida']:.2f}</div>
+            <div class="cf-card-value">{format_brl(resumo['total_saida'])}</div>
             <div class="cf-card-extra">Somatório de todas as saídas no período.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
+    
     saldo_class = "cf-card-balance-positive" if resumo["saldo"] >= 0 else "cf-card-balance-negative"
     saldo_label_extra = "Sobrou dinheiro este mês. 👏" if resumo["saldo"] >= 0 else "Atenção: você gastou mais do que ganhou."
-
+    
     col3.markdown(
         f"""
         <div class="cf-card {saldo_class}">
             <div class="cf-card-label">Saldo do mês</div>
-            <div class="cf-card-value">R$ {resumo['saldo']:.2f}</div>
+            <div class="cf-card-value">{format_brl(resumo['saldo'])}</div>
             <div class="cf-card-extra">{saldo_label_extra}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
+    
     col4.markdown(
         f"""
         <div class="cf-card cf-card-ratio">
             <div class="cf-card-label">Renda comprometida</div>
-            <div class="cf-card-value">{resumo['perc_comprometido']:.1f}%</div>
+            <div class="cf-card-value">{format_percent(resumo['perc_comprometido'])}</div>
             <div class="cf-card-extra">Percentual da renda usada para despesas no mês.</div>
         </div>
         """,
@@ -382,18 +397,22 @@ def main():
         if not df_cat.empty:
             df_cat_chart = df_cat.set_index("category")
             st.bar_chart(df_cat_chart)
-            st.dataframe(
-                df_cat.rename(columns={"category": "Categoria", "amount": "Valor (R$)"}),
-                use_container_width=True,
+            df_cat_fmt = df_cat.rename(columns={"category": "Categoria", "amount": "Valor (R$)"}).copy()
+            df_cat_fmt["Valor (R$)"] = df_cat_fmt["Valor (R$)"].apply(
+                lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
+
+            st.dataframe(df_cat_fmt, use_container_width=True)
+
         else:
             st.info("Não há despesas cadastradas neste mês.")
 
-    with col_g2:
+   with col_g2:
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas)")
         if not df_hist.empty:
             df_hist_chart = df_hist.copy()
-            df_hist_chart.index = df_hist_chart.index.strftime("%m/%y")
+            # garante que o index é datetime antes de formatar
+            df_hist_chart.index = pd.to_datetime(df_hist_chart.index).strftime("%m/%y")
             st.line_chart(df_hist_chart)
             st.dataframe(df_hist_chart, use_container_width=True)
         else:
@@ -419,6 +438,11 @@ def main():
                 "description": "Descrição",
             }
         )
+
+        df_sorted_display["Valor (R$)"] = df_sorted_display["Valor (R$)"].apply(
+        lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
         st.dataframe(df_sorted_display, use_container_width=True)
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
