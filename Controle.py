@@ -205,9 +205,8 @@ def main():
         layout="wide",
     )
 
+    apply_custom_style()
     init_db()
-
-    st.title("💰 Dashboard Financeiro")
 
     # Sidebar - filtros e data de referência
     with st.sidebar:
