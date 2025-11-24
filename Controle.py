@@ -421,11 +421,15 @@ def main():
 
     # ---------- ÚLTIMOS LANÇAMENTOS ----------
     st.markdown("### Últimos lançamentos")
+
     if not df.empty:
-        df_sorted = df.sort_values("date", ascending=False).head(20)
-        df_sorted_display = df_sorted.copy()
-        df_sorted_display["date"] = df_sorted_display["date"].apply(lambda d: d.strftime("%d/%m/%Y"))
-        df_sorted_display = df_sorted_display.rename(
+        # pega os 20 últimos
+        df_sorted = df.sort_values("date", ascending=False).head(20).copy()
+
+        # Tabela para visualização (read-only), com data e valor formatados
+        df_view = df_sorted.copy()
+        df_view["date"] = df_view["date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+        df_view = df_view.rename(
             columns={
                 "type": "Tipo",
                 "category": "Categoria",
@@ -437,14 +441,102 @@ def main():
                 "description": "Descrição",
             }
         )
-
-        df_sorted_display["Valor (R$)"] = df_sorted_display["Valor (R$)"].apply(
-        lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        # formata o valor em R$
+        df_view["Valor (R$)"] = df_view["Valor (R$)"].apply(
+            lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
 
-        st.dataframe(df_sorted_display, use_container_width=True)
+        edit_mode = st.checkbox("Habilitar edição dos últimos lançamentos")
+
+        if not edit_mode:
+            # modo somente leitura
+            st.dataframe(df_view, use_container_width=True)
+        else:
+            st.info("Edite as linhas desejadas e clique em **Salvar alterações** para gravar no banco.")
+
+            # DataFrame para edição (mantém valores numéricos e datas nativas)
+            df_edit = df_sorted.copy()
+            df_edit = df_edit[
+                ["id", "type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
+            ]
+            df_edit = df_edit.rename(
+                columns={
+                    "id": "ID",
+                    "type": "Tipo",
+                    "category": "Categoria",
+                    "date": "Data",
+                    "amount": "Valor",
+                    "payment_type": "Forma",
+                    "card_name": "Cartão",
+                    "installments": "Parcelas",
+                    "description": "Descrição",
+                }
+            )
+
+            edited_df = st.data_editor(
+                df_edit,
+                num_rows="fixed",
+                hide_index=True,
+                key="editor_ultimos",
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", disabled=True),
+                    "Data": st.column_config.DateColumn("Data"),
+                    "Valor": st.column_config.NumberColumn("Valor", step=10.0, format="%.2f"),
+                    "Parcelas": st.column_config.NumberColumn("Parcelas", step=1),
+                },
+            )
+
+            if st.button("Salvar alterações"):
+                # renomeia de volta para nomes do banco
+                to_update = edited_df.rename(
+                    columns={
+                        "ID": "id",
+                        "Tipo": "type",
+                        "Categoria": "category",
+                        "Data": "date",
+                        "Valor": "amount",
+                        "Forma": "payment_type",
+                        "Cartão": "card_name",
+                        "Parcelas": "installments",
+                        "Descrição": "description",
+                    }
+                ).copy()
+
+                # converte tipos
+                to_update["date"] = pd.to_datetime(to_update["date"]).dt.date.apply(lambda d: d.isoformat())
+                to_update["amount"] = to_update["amount"].astype(float)
+                to_update["installments"] = to_update["installments"].astype(int)
+
+                conn = get_connection()
+                cur = conn.cursor()
+                for _, row in to_update.iterrows():
+                    cur.execute(
+                        """
+                        UPDATE transactions
+                        SET type = ?, category = ?, date = ?, amount = ?,
+                            payment_type = ?, card_name = ?, installments = ?, description = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            row["type"],
+                            row["category"],
+                            row["date"],
+                            row["amount"],
+                            row["payment_type"],
+                            row.get("card_name"),
+                            row["installments"],
+                            row.get("description"),
+                            int(row["id"]),
+                        ),
+                    )
+                conn.commit()
+                conn.close()
+
+                st.success("Alterações salvas com sucesso!")
+                st.experimental_rerun()
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
+
 
 if __name__ == "__main__":
     main()
