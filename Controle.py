@@ -1,5 +1,5 @@
 import streamlit as st
-import sqlite3
+import psycopg2
 from datetime import date
 from dateutil.relativedelta import relativedelta
 import pandas as pd
@@ -9,26 +9,20 @@ DB_PATH = "finance.db"
 # ---------- Banco de Dados ----------
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    params = st.secrets["supabase_db"]
+    conn = psycopg2.connect(
+        host=params["host"],
+        port=params["port"],
+        dbname=params["dbname"],
+        user=params["user"],
+        password=params["password"],
+    )
     return conn
 
 def init_db():
+    # Como já criamos a tabela no Supabase,
+    # aqui apenas testamos a conexão
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL,              -- 'entrada' ou 'saida'
-            category TEXT NOT NULL,          -- Ex: 'Salário', 'Mercado'
-            date TEXT NOT NULL,              -- 'YYYY-MM-DD'
-            amount REAL NOT NULL,
-            payment_type TEXT NOT NULL,      -- 'Conta', 'Cartão', 'Dinheiro', etc
-            card_name TEXT,                  -- opcional
-            installments INTEGER DEFAULT 1,
-            description TEXT
-        );
-    """)
-    conn.commit()
     conn.close()
 
 def insert_transaction(t_type, category, d, amount, payment_type, card_name, installments, description):
@@ -38,16 +32,17 @@ def insert_transaction(t_type, category, d, amount, payment_type, card_name, ins
         """
         INSERT INTO transactions
         (type, category, date, amount, payment_type, card_name, installments, description)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (t_type, category, d, amount, payment_type, card_name, installments, description),
     )
     conn.commit()
     conn.close()
 
+
 def load_data():
     conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM transactions", conn)
+    df = pd.read_sql_query("SELECT * FROM transactions ORDER BY date DESC", conn)
     conn.close()
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"]).dt.date
@@ -583,9 +578,9 @@ def main():
                     cur.execute(
                         """
                         UPDATE transactions
-                        SET type = ?, category = ?, date = ?, amount = ?,
-                            payment_type = ?, card_name = ?, installments = ?, description = ?
-                        WHERE id = ?
+                        SET type = %s, category = %s, date = %s, amount = %s,
+                            payment_type = %s, card_name = %s, installments = %s, description = %s
+                        WHERE id = %s
                         """,
                         (
                             row["type"],
