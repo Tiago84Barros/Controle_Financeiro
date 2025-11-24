@@ -455,17 +455,32 @@ def main():
         st.markdown("#### Gastos por categoria (mês)")
         if not df_cat.empty:
             df_cat_chart = df_cat.set_index("category")
-            st.bar_chart(df_cat_chart)
+    
+            import altair as alt
+    
+            chart = (
+                alt.Chart(df_cat_chart.reset_index())
+                .mark_bar(color="#ff4d4d")  # vermelho
+                .encode(
+                    x=alt.X("category:N", title="Categoria", sort="-y"),
+                    y=alt.Y("amount:Q", title="Valor (R$)")
+                )
+                .properties(height=350)
+            )
+    
+            st.altair_chart(chart, use_container_width=True)
+    
+            # tabela formatada
             df_cat_fmt = df_cat.rename(columns={"category": "Categoria", "amount": "Valor (R$)"}).copy()
             df_cat_fmt["Valor (R$)"] = df_cat_fmt["Valor (R$)"].apply(
                 lambda v: f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-
+    
             st.dataframe(df_cat_fmt, use_container_width=True)
-
+    
         else:
             st.info("Não há despesas cadastradas neste mês.")
-
+        
     with col_g2:
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas)")
         if not df_hist.empty:
