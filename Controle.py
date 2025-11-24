@@ -9,15 +9,10 @@ DB_PATH = "finance.db"
 # ---------- Banco de Dados ----------
 
 def get_connection():
-    params = st.secrets["supabase_db"]
-    conn = psycopg2.connect(
-        host=params["host"],
-        port=params["port"],
-        dbname=params["dbname"],
-        user=params["user"],
-        password=params["password"],
-    )
+    dsn = st.secrets["supabase_db"]["url"]
+    conn = psycopg2.connect(dsn, sslmode="require")
     return conn
+
 
 def init_db():
     # Como já criamos a tabela no Supabase,
