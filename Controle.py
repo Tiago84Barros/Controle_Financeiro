@@ -247,7 +247,11 @@ def main():
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
-        ref_date = st.date_input("Mês de referência", value=today,  format="DD/MM/YYYY")
+        ref_date = st.date_input(
+            "Mês de referência",
+            value=today,
+            format="DD/MM/YYYY"
+        )
         st.markdown("---")
     
         # Categorias pré-definidas
@@ -261,50 +265,77 @@ def main():
     
         expense_categories = [
             "Mercado",
-            "Condomínio",
+            "Água",
             "Luz",
             "Internet",
             "Transporte",
             "Combustível",
             "Saúde",
-            "Despesas Domésticas",
+            "Farmácia",
             "Lazer",
             "Assinaturas",
             "Educação",
             "Restaurante",
-            "Financiamento",
-            "Pagamento de Cartão",
+            "Roupas",
+            "Viagem",
+            "Casa",
             "Outros"
+        ]
+    
+        investment_categories = [
+            "Renda Fixa",
+            "Renda Variável",
+            "Exterior",
+            "Reserva de Despesa",
+            "Outra"
         ]
     
         st.header("Novo lançamento")
     
-        # 👉 Tipo fora do form, assim a tela reativa funciona
-        t_type = st.radio("Tipo", ["entrada", "saida"], horizontal=True)
+        # 🔹 Tipo agora tem 3 opções
+        t_type = st.radio("Tipo", ["entrada", "saida", "investimento"], horizontal=True)
     
         with st.form("novo_lancamento", clear_on_submit=True):
-            # Decide a lista de categorias com base no tipo já escolhido
+    
+            # 🔹 Seleção dinâmica de categorias
             if t_type == "entrada":
                 cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
-            else:
+    
+            elif t_type == "saida":
                 cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
     
-            # Se escolher "Outra", mostra campo para digitar manualmente
+            else:  # investimento
+                cat_choice = st.selectbox("Categoria", investment_categories)
+    
+            # Se escolher "Outra", mostra campo manual
             if cat_choice == "Outra":
                 category = st.text_input("Categoria personalizada")
             else:
                 category = cat_choice
     
-            d = st.date_input("Data", value=today, format="DD/MM/YYYY", key="data_lanc")
-            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
-
-    
-            payment_type = st.selectbox(
-                "Forma de pagamento", ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
+            # 🔹 Data no formato BR
+            d = st.date_input(
+                "Data",
+                value=today,
+                format="DD/MM/YYYY",
+                key="data_lanc"
             )
+    
+            # 🔹 Campo Valor (como string BR)
+            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
+    
+            # 🔹 Forma de pagamento (só aparece para saída e entrada)
+            if t_type in ["entrada", "saida"]:
+                payment_type = st.selectbox(
+                    "Forma de pagamento",
+                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
+                )
+            else:
+                payment_type = "Conta"   # investimento sai sempre da conta
     
             card_name = ""
             installments = 1
+    
             if payment_type == "Cartão de crédito":
                 card_name = st.text_input("Nome do cartão")
                 installments = st.number_input("Parcelas", min_value=1, value=1, step=1)
@@ -312,10 +343,11 @@ def main():
             description = st.text_area("Descrição (opcional)")
     
             submitted = st.form_submit_button("Salvar lançamento")
-
+    
             if submitted:
+    
                 amount = parse_brl_to_float(valor_str)
-            
+    
                 if amount > 0 and category.strip():
                     insert_transaction(
                         t_type,
@@ -329,8 +361,7 @@ def main():
                     )
                     st.success("Lançamento salvo com sucesso!")
                 else:
-                    st.error("Preencha pelo menos categoria e valor maior que zero.")
-
+                    st.error("Preencha categoria e valor maior que zero.")
 
     # --- DADOS ---
     df = load_data()
