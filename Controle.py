@@ -216,7 +216,7 @@ def main():
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
-        ref_date = st.date_input("Mês de referência", value=today)
+        ref_date = st.date_input("Mês de referência", value=today,  format="DD/MM/YYYY")
         st.markdown("---")
     
         # Categorias pré-definidas
