@@ -314,7 +314,7 @@ def main():
             </div>
             <div>
                 <span class="cf-pill">
-                    Mês atual: {ref_date.strftime("%b %Y")}
+                     Mês atual: {ref_date.strftime("%d/%m/%Y")}
                 </span>
             </div>
         </div>
