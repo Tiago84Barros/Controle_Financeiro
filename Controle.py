@@ -245,20 +245,19 @@ def main():
     
         expense_categories = [
             "Mercado",
-            "Água",
+            "Condomínio",
             "Luz",
             "Internet",
             "Transporte",
             "Combustível",
             "Saúde",
-            "Farmácia",
+            "Despesas Domésticas",
             "Lazer",
             "Assinaturas",
             "Educação",
             "Restaurante",
-            "Roupas",
-            "Viagem",
-            "Casa",
+            "Financiamento",
+            "Pagamento de Cartão",
             "Outros"
         ]
     
