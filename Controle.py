@@ -578,7 +578,7 @@ def main():
             # DataFrame para edição (mantém valores numéricos e datas nativas)
             df_edit = df_sorted.copy()
             df_edit = df_edit[
-                ["id", "type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
+                ["type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
             ]
             df_edit = df_edit.rename(
                 columns={
