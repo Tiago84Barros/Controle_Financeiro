@@ -265,7 +265,7 @@ def main():
             else:
                 category = cat_choice
     
-            d = st.date_input("Data", value=today, key="data_lanc")
+            d = st.date_input("Data", value=today, format="DD/MM/YYYY", key="data_lanc")
             amount = st.number_input("Valor (R$)", min_value=0.0, step=10.0, format="%.2f")
     
             payment_type = st.selectbox(
