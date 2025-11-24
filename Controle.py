@@ -68,6 +68,7 @@ def compute_summary(df, ref_date):
         return {
             "total_entrada": 0.0,
             "total_saida": 0.0,
+            "total_investimento": 0.0,
             "saldo": 0.0,
             "perc_comprometido": 0.0,
         }, pd.DataFrame(), pd.DataFrame()
@@ -78,10 +79,16 @@ def compute_summary(df, ref_date):
 
     total_entrada = df_month.loc[df_month["type"] == "entrada", "amount"].sum()
     total_saida = df_month.loc[df_month["type"] == "saida", "amount"].sum()
-    saldo = total_entrada - total_saida
-    perc_comprometido = (total_saida / total_entrada * 100) if total_entrada > 0 else 0
+    total_investimento = df_month.loc[df_month["type"] == "investimento", "amount"].sum()
 
-    # Despesas por categoria no mês
+    # 🔹 saldo líquido: entradas - saídas - investimentos
+    saldo = total_entrada - total_saida - total_investimento
+
+    # 🔹 renda comprometida: saídas + investimentos
+    comprometido = total_saida + total_investimento
+    perc_comprometido = (comprometido / total_entrada * 100) if total_entrada > 0 else 0
+
+    # Despesas por categoria no mês (só saídas, como antes)
     df_cat = (
         df_month[df_month["type"] == "saida"]
         .groupby("category")["amount"]
@@ -90,7 +97,7 @@ def compute_summary(df, ref_date):
         .sort_values("amount", ascending=False)
     )
 
-    # Histórico últimos 6 meses
+    # Histórico últimos 6 meses (entrada/saida/investimento)
     six_months_ago = first_day - relativedelta(months=5)
     mask_hist = (df["date"] >= six_months_ago) & (df["date"] <= last_day)
     df_hist = df[mask_hist].copy()
@@ -106,6 +113,7 @@ def compute_summary(df, ref_date):
     resumo = {
         "total_entrada": float(total_entrada),
         "total_saida": float(total_saida),
+        "total_investimento": float(total_investimento),
         "saldo": float(saldo),
         "perc_comprometido": float(round(perc_comprometido, 1)),
     }
