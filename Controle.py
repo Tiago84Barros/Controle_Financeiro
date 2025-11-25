@@ -788,21 +788,72 @@ def render_analises(df):
     st.markdown("---")
 
     # ----------------------------
-    # 4️⃣ EVOLUÇÃO DO PATRIMÔNIO (opcional)
+    # 4️⃣ EVOLUÇÃO DO PATRIMÔNIO INVESTIDO – ANO A ANO
     # ----------------------------
-    st.subheader("📈 Evolução do Patrimônio (opcional)")
+    st.subheader("📈 Evolução do patrimônio investido (ano a ano)")
 
-    df["ym"] = pd.to_datetime(df["date"]).dt.to_period("M").dt.to_timestamp()
+    # Filtra somente os lançamentos de investimento
+    df_inv = df[df["type"] == "investimento"].copy()
 
-    df_saldo = df.groupby("ym").apply(
-        lambda d: d[d["type"] == "entrada"]["amount"].sum()
-                - d[d["type"] == "saida"]["amount"].sum()
-                - d[d["type"] == "investimento"]["amount"].sum()
-    ).reset_index(name="saldo_liquido")
+    if df_inv.empty:
+        st.info("Ainda não há lançamentos de investimento para montar a evolução.")
+    else:
+        # Ano de cada investimento
+        df_inv["year"] = pd.to_datetime(df_inv["date"]).dt.year
 
-    df_saldo["acumulado"] = df_saldo["saldo_liquido"].cumsum()
+        # Total investido em cada ano
+        df_inv_year = (
+            df_inv.groupby("year")["amount"]
+            .sum()
+            .reset_index(name="investido_no_ano")
+            .sort_values("year")
+        )
 
-    st.line_chart(df_saldo.set_index("ym")["acumulado"])
+        # Acumulado ao longo dos anos
+        df_inv_year["investido_acumulado"] = df_inv_year["investido_no_ano"].cumsum()
+
+        # ----- TABELA FORMATADA -----
+        df_inv_view = df_inv_year.copy()
+        df_inv_view["Ano"] = df_inv_view["year"].astype(int)
+        df_inv_view["Investido no ano (R$)"] = df_inv_view["investido_no_ano"].apply(
+            lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        df_inv_view["Acumulado investido (R$)"] = df_inv_view["investido_acumulado"].apply(
+            lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        df_inv_view = df_inv_view[["Ano", "Investido no ano (R$)", "Acumulado investido (R$)"]]
+
+        st.dataframe(df_inv_view, use_container_width=True)
+
+        # ----- GRÁFICO ANO A ANO -----
+        # Barras: quanto foi investido em cada ano
+        # Linha: acumulado até aquele ano
+        base = alt.Chart(df_inv_year).encode(
+            x=alt.X("year:O", title="Ano")
+        )
+
+        barras = base.mark_bar().encode(
+            y=alt.Y("investido_no_ano:Q", title="Investido no ano (R$)"),
+            tooltip=[
+                alt.Tooltip("year:O", title="Ano"),
+                alt.Tooltip("investido_no_ano:Q", title="Investido no ano"),
+                alt.Tooltip("investido_acumulado:Q", title="Acumulado até o ano"),
+            ],
+        )
+
+        linha = base.mark_line(point=True, color="#60a5fa").encode(
+            y=alt.Y("investido_acumulado:Q", title="Acumulado (R$)"),
+        )
+
+        chart_inv = alt.layer(barras, linha).resolve_scale(
+            y="independent"
+        ).properties(
+            width="container",
+            height=320
+        )
+
+        st.altair_chart(chart_inv, use_container_width=True)
+
 
 if __name__ == "__main__":
     main()
