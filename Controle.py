@@ -1,7 +1,7 @@
 import streamlit as st
 import psycopg2
 from datetime import date
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedeltae
 import pandas as pd
 
 DB_PATH = "finance.db"
@@ -508,23 +508,37 @@ def main():
         
     with col_g2:
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas)")
+    
         if not df_hist.empty:
+    
+            df_hist_fmt = df_hist.copy()
+            df_hist_fmt.index = pd.to_datetime(df_hist_fmt.index)
+    
+            # Criar coluna do mês formatado
+            df_hist_fmt["Mês"] = df_hist_fmt.index.strftime("%m/%y")
+    
+            # Remover o índice antigo
+            df_hist_fmt = df_hist_fmt.reset_index(drop=True)
+    
+            # Reordenar colunas
+            cols = ["Mês"] + [c for c in df_hist_fmt.columns if c != "Mês"]
+            df_hist_fmt = df_hist_fmt[cols]
+    
+            # Formatar valores como moeda
+            for col in df_hist_fmt.columns:
+                if col not in ["Mês"]:
+                    df_hist_fmt[col] = df_hist_fmt[col].apply(format_brl)
+    
+            # ---------- GRÁFICO ----------
             df_hist_chart = df_hist.copy()
             df_hist_chart.index = pd.to_datetime(df_hist_chart.index).strftime("%m/%y")
-    
-            # Mostra gráfico
             st.line_chart(df_hist_chart)
     
-            # --- Formatação BRL da tabela ---
-            df_hist_fmt = df_hist_chart.copy()
-            for col in df_hist_fmt.columns:
-                df_hist_fmt[col] = df_hist_fmt[col].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-           
-            df_hist_fmt = df_hist_fmt.rename_axis("Mês").reset_index()
+            # ---------- TABELA ----------
             st.dataframe(df_hist_fmt, use_container_width=True)
+    
         else:
             st.info("Ainda não há dados suficientes para histórico.")
-
 
     st.markdown("---")
 
