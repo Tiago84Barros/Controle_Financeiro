@@ -770,11 +770,20 @@ def render_analises(df):
     # ----------------------------
     st.subheader("💳 Gastos com pagamento de cartão (mensal)")
 
-    # Filtra somente saídas cuja categoria é "Pagamento de Cartão"
-    df_cc = df[(df["type"] == "saida") & (df["category"] == "Pagamento de Cartão")].copy()
+    # Filtra somente saídas e normaliza categoria
+    df_cc = df[df["type"] == "saida"].copy()
+    df_cc["category_norm"] = (
+        df_cc["category"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    alvo = "pagamento de cartão"
+    df_cc = df_cc[df_cc["category_norm"] == alvo]
 
     if df_cc.empty:
-        st.info("Ainda não há lançamentos na categoria 'Pagamento de Cartão'.")
+        st.info("Não há lançamentos na categoria 'Pagamento de Cartão' para análise ainda.")
     else:
         # Garante tipo datetime e cria coluna de ano
         df_cc["date"] = pd.to_datetime(df_cc["date"])
@@ -865,7 +874,7 @@ def render_analises(df):
 
             st.dataframe(tabela_cc, use_container_width=True)
 
-    st.markdown("---")
+     st.markdown("---")
 
     # ----------------------------
     # 4️⃣ EVOLUÇÃO DO PATRIMÔNIO INVESTIDO – ANO A ANO
