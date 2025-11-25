@@ -676,6 +676,15 @@ def main():
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
 
+    st.set_page_config(
+        page_title="Dashboard Financeiro",
+        page_icon="💰",
+        layout="wide",
+    )
+
+    apply_custom_style()
+    init_db()
+
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
         "Navegação",
