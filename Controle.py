@@ -242,7 +242,26 @@ def main():
     apply_custom_style()
     init_db()
 
-    # --- SIDEBAR ---
+    # --- Navegação entre páginas (vem primeiro!) ---
+    pagina = st.sidebar.radio(
+        "Navegação",
+        ["Dashboard", "Análises"],
+        horizontal=False
+    )
+
+    # Carrega dados uma única vez
+    df = load_data()
+
+    # Se for página de análises, não renderiza o dashboard
+    if pagina == "Análises":
+        render_analises(df)
+        return   # ou st.stop()
+
+    # ------------------------------------------------------------------
+    # Se chegou aqui, é porque a página selecionada é "Dashboard"
+    # ------------------------------------------------------------------
+
+    # --- SIDEBAR DO DASHBOARD ---
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
@@ -298,10 +317,8 @@ def main():
             # 🔹 Seleção dinâmica de categorias
             if t_type == "entrada":
                 cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
-    
             elif t_type == "saida":
                 cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
-    
             else:  # investimento
                 cat_choice = st.selectbox("Categoria", investment_categories)
     
@@ -343,7 +360,6 @@ def main():
             submitted = st.form_submit_button("Salvar lançamento")
     
             if submitted:
-    
                 amount = parse_brl_to_float(valor_str)
     
                 if amount > 0 and category.strip():
@@ -361,6 +377,7 @@ def main():
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
 
+ 
     # --- DADOS ---
     df = load_data()
        
@@ -675,29 +692,6 @@ def main():
                 st.rerun()
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
-
-    st.set_page_config(
-        page_title="Dashboard Financeiro",
-        page_icon="💰",
-        layout="wide",
-    )
-
-    apply_custom_style()
-    init_db()
-
-    # --- Navegação entre páginas ---
-    pagina = st.sidebar.radio(
-        "Navegação",
-        ["Dashboard", "Análises"],
-        horizontal=False
-    )
-    
-    # Carrega dados do banco
-    df = load_data()
-    
-    if pagina == "Análises":
-        render_analises(df)
-        st.stop()   # <-- substitui o return e FUNCIONA no Streamlit
 
 
 # __________________________________________________________________________________________________________________________________________________________
