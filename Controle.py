@@ -726,15 +726,24 @@ def render_analises(df):
 
     st.dataframe(tabela_fmt, use_container_width=True)
 
-    # Gráfico YOY
-    chart_yoy = alt.Chart(df_yoy).mark_bar().encode(
-        x=alt.X("year:N", title="Ano"),
-        y=alt.Y("amount:Q", title="Valor (R$)"),
-        color="type:N",
-        column="type:N"
+   # Gráfico YOY (agrupado e responsivo)
+    chart_yoy = (
+        alt.Chart(df_yoy)
+        .mark_bar()
+        .encode(
+            x=alt.X("year:N", title="Ano"),
+            y=alt.Y("amount:Q", title="Valor (R$)"),
+            color=alt.Color("type:N", title="Tipo"),
+            tooltip=["year:N", "type:N", "amount:Q"],
+        )
+        .properties(
+            width="container",   # ocupa a largura disponível
+            height=320
+        )
     )
-
+    
     st.altair_chart(chart_yoy, use_container_width=True)
+
 
     st.markdown("---")
 
