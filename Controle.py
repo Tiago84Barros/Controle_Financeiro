@@ -766,24 +766,104 @@ def render_analises(df):
     st.markdown("---")
 
     # ----------------------------
-    # 3️⃣ DESPESAS POR CARTÃO
+    # 3️⃣ GASTOS COM PAGAMENTO DE CARTÃO (MENSAL, POR ANO)
     # ----------------------------
-    st.subheader("💳 Gastos por Cartão de Crédito")
+    st.subheader("💳 Gastos com pagamento de cartão (mensal)")
 
-    df_cartao = df[(df["type"] == "saida") & (df["payment_type"] == "Cartão de crédito")]
+    # Filtra somente saídas cuja categoria é "Pagamento de Cartão"
+    df_cc = df[(df["type"] == "saida") & (df["category"] == "Pagamento de Cartão")].copy()
 
-    if df_cartao.empty:
-        st.info("Nenhum gasto em cartões de crédito.")
+    if df_cc.empty:
+        st.info("Ainda não há lançamentos na categoria 'Pagamento de Cartão'.")
     else:
-        df_sum_cartao = df_cartao.groupby("card_name")["amount"].sum().reset_index()
-        df_sum_cartao["amount_fmt"] = df_sum_cartao["amount"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        # Garante tipo datetime e cria coluna de ano
+        df_cc["date"] = pd.to_datetime(df_cc["date"])
+        df_cc["year"] = df_cc["date"].dt.year
 
-        st.dataframe(df_sum_cartao.rename(columns={
-            "card_name": "Cartão",
-            "amount_fmt": "Total (R$)"
-        })[["Cartão", "Total (R$)"]], use_container_width=True)
+        # Lista de anos disponíveis (mais recente primeiro)
+        anos_disponiveis = sorted(df_cc["year"].unique(), reverse=True)
 
-        st.bar_chart(df_sum_cartao.set_index("card_name")["amount"])
+        ano_atual = date.today().year
+        idx_default = 0
+        if ano_atual in anos_disponiveis:
+            idx_default = anos_disponiveis.index(ano_atual)
+
+        ano_ref = st.selectbox(
+            "Ano de referência",
+            anos_disponiveis,
+            index=idx_default,
+        )
+
+        # Filtra apenas o ano escolhido
+        df_cc_ano = df_cc[df_cc["year"] == ano_ref].copy()
+
+        if df_cc_ano.empty:
+            st.info(f"Não há gastos com 'Pagamento de Cartão' em {ano_ref}.")
+        else:
+            # mês numérico
+            df_cc_ano["mes"] = df_cc_ano["date"].dt.month
+            # agrupa por mês e cartão
+            df_cc_mes = (
+                df_cc_ano.groupby(["mes", "card_name"])["amount"]
+                .sum()
+                .reset_index()
+            )
+
+            # rótulo do mês (MM/AAAA)
+            df_cc_mes["mes_label"] = df_cc_mes["mes"].apply(
+                lambda m: f"{m:02d}/{ano_ref}"
+            )
+
+            # ---------- GRÁFICO ----------
+            chart_cc = (
+                alt.Chart(df_cc_mes)
+                .mark_bar()
+                .encode(
+                    x=alt.X("mes_label:N", title="Mês"),
+                    y=alt.Y("amount:Q", title="Total pago (R$)"),
+                    color=alt.Color("card_name:N", title="Cartão"),
+                    tooltip=[
+                        alt.Tooltip("mes_label:N", title="Mês"),
+                        alt.Tooltip("card_name:N", title="Cartão"),
+                        alt.Tooltip(
+                            "amount:Q",
+                            title="Total pago",
+                            format=",.2f",
+                        ),
+                    ],
+                )
+                .properties(
+                    width="container",
+                    height=320,
+                )
+            )
+
+            st.altair_chart(chart_cc, use_container_width=True)
+
+            # ---------- TABELA RESUMO ----------
+            tabela_cc = (
+                df_cc_mes.groupby(["mes_label", "card_name"])["amount"]
+                .sum()
+                .reset_index()
+            )
+
+            tabela_cc["Total (R$)"] = tabela_cc["amount"].apply(
+                lambda v: f"R$ {v:,.2f}"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
+
+            tabela_cc = tabela_cc.rename(
+                columns={
+                    "mes_label": "Mês",
+                    "card_name": "Cartão",
+                }
+            )
+
+            tabela_cc = tabela_cc[["Mês", "Cartão", "Total (R$)"]]
+
+            st.dataframe(tabela_cc, use_container_width=True)
 
     st.markdown("---")
 
