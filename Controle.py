@@ -1,6 +1,7 @@
 import streamlit as st
 import psycopg2
 from datetime import date
+import altair as alt
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
@@ -675,19 +676,22 @@ def main():
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
 
-# --- Navegação entre páginas ---
-pagina = st.sidebar.radio(
-    "Navegação",
-    ["Dashboard", "Análises"],
-    horizontal=False
-)
-# Carrega dados do banco
-df = load_data()
-if pagina == "Análises":
-    render_analises(df)
-    return  # Cancela o restante da execução do Dashboard
+    # --- Navegação entre páginas ---
+    pagina = st.sidebar.radio(
+        "Navegação",
+        ["Dashboard", "Análises"],
+        horizontal=False
+    )
     
-import altair as alt
+    # Carrega dados do banco
+    df = load_data()
+    
+    if pagina == "Análises":
+        render_analises(df)
+        st.stop()   # <-- substitui o return e FUNCIONA no Streamlit
+
+
+# __________________________________________________________________________________________________________________________________________________________
 
 def render_analises(df):
 
@@ -787,8 +791,6 @@ def render_analises(df):
     df_saldo["acumulado"] = df_saldo["saldo_liquido"].cumsum()
 
     st.line_chart(df_saldo.set_index("ym")["acumulado"])
-
-
 
 if __name__ == "__main__":
     main()
