@@ -510,12 +510,20 @@ def main():
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas)")
         if not df_hist.empty:
             df_hist_chart = df_hist.copy()
-            # garante que o index é datetime antes de formatar
             df_hist_chart.index = pd.to_datetime(df_hist_chart.index).strftime("%m/%y")
+    
+            # Mostra gráfico
             st.line_chart(df_hist_chart)
-            st.dataframe(df_hist_chart, use_container_width=True)
+    
+            # --- Formatação BRL da tabela ---
+            df_hist_fmt = df_hist_chart.copy()
+            for col in df_hist_fmt.columns:
+                df_hist_fmt[col] = df_hist_fmt[col].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    
+            st.dataframe(df_hist_fmt, use_container_width=True)
         else:
             st.info("Ainda não há dados suficientes para histórico.")
+
 
     st.markdown("---")
 
