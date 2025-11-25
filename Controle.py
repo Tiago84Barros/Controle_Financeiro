@@ -675,6 +675,120 @@ def main():
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
 
+# --- Navegação entre páginas ---
+pagina = st.sidebar.radio(
+    "Navegação",
+    ["Dashboard", "Análises"],
+    horizontal=False
+)
+# Carrega dados do banco
+df = load_data()
+if pagina == "Análises":
+    render_analises(df)
+    return  # Cancela o restante da execução do Dashboard
+    
+import altair as alt
+
+def render_analises(df):
+
+    st.title("📊 Análises Financeiras")
+    st.markdown("Exploração avançada dos seus dados financeiros.")
+
+    if df.empty:
+        st.warning("Nenhum dado disponível para análise.")
+        return
+
+    # -------------------------
+    # 1️⃣ COMPARATIVO ANO vs ANO
+    # -------------------------
+    st.subheader("📅 Comparativo Ano a Ano")
+
+    df['year'] = pd.to_datetime(df['date']).dt.year
+
+    df_yoy = df.groupby(['year', 'type'])['amount'].sum().reset_index()
+
+    tabela_yoy = df_yoy.pivot(index="year", columns="type", values="amount").fillna(0)
+    tabela_yoy = tabela_yoy.rename(columns={
+        "entrada": "Receitas",
+        "saida": "Despesas",
+        "investimento": "Investimentos"
+    })
+
+    # Formatação moeda
+    tabela_fmt = tabela_yoy.applymap(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    st.dataframe(tabela_fmt, use_container_width=True)
+
+    # Gráfico YOY
+    chart_yoy = alt.Chart(df_yoy).mark_bar().encode(
+        x=alt.X("year:N", title="Ano"),
+        y=alt.Y("amount:Q", title="Valor (R$)"),
+        color="type:N",
+        column="type:N"
+    )
+
+    st.altair_chart(chart_yoy, use_container_width=True)
+
+    st.markdown("---")
+
+    # -----------------------------------
+    # 2️⃣ DESPESAS POR FORMA DE PAGAMENTO
+    # -----------------------------------
+    st.subheader("💳 Despesas por forma de pagamento")
+
+    df_pag = df[df["type"] == "saida"].groupby("payment_type")["amount"].sum().reset_index()
+
+    df_pag["amount_fmt"] = df_pag["amount"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    st.dataframe(df_pag.rename(columns={
+        "payment_type": "Forma de Pagamento",
+        "amount_fmt": "Total (R$)"
+    })[["Forma de Pagamento", "Total (R$)"]], use_container_width=True)
+
+    st.bar_chart(df_pag.set_index("payment_type")["amount"])
+
+    st.markdown("---")
+
+    # ----------------------------
+    # 3️⃣ DESPESAS POR CARTÃO
+    # ----------------------------
+    st.subheader("💳 Gastos por Cartão de Crédito")
+
+    df_cartao = df[(df["type"] == "saida") & (df["payment_type"] == "Cartão de crédito")]
+
+    if df_cartao.empty:
+        st.info("Nenhum gasto em cartões de crédito.")
+    else:
+        df_sum_cartao = df_cartao.groupby("card_name")["amount"].sum().reset_index()
+        df_sum_cartao["amount_fmt"] = df_sum_cartao["amount"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        st.dataframe(df_sum_cartao.rename(columns={
+            "card_name": "Cartão",
+            "amount_fmt": "Total (R$)"
+        })[["Cartão", "Total (R$)"]], use_container_width=True)
+
+        st.bar_chart(df_sum_cartao.set_index("card_name")["amount"])
+
+    st.markdown("---")
+
+    # ----------------------------
+    # 4️⃣ EVOLUÇÃO DO PATRIMÔNIO (opcional)
+    # ----------------------------
+    st.subheader("📈 Evolução do Patrimônio (opcional)")
+
+    df["ym"] = pd.to_datetime(df["date"]).dt.to_period("M").dt.to_timestamp()
+
+    df_saldo = df.groupby("ym").apply(
+        lambda d: d[d["type"] == "entrada"]["amount"].sum()
+                - d[d["type"] == "saida"]["amount"].sum()
+                - d[d["type"] == "investimento"]["amount"].sum()
+    ).reset_index(name="saldo_liquido")
+
+    df_saldo["acumulado"] = df_saldo["saldo_liquido"].cumsum()
+
+    st.line_chart(df_saldo.set_index("ym")["acumulado"])
+
+
 
 if __name__ == "__main__":
     main()
