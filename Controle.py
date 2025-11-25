@@ -1,7 +1,7 @@
 import streamlit as st
 import psycopg2
 from datetime import date
-from dateutil.relativedelta import relativedeltae
+from dateutil.relativedelta import relativedelta
 import pandas as pd
 
 DB_PATH = "finance.db"
