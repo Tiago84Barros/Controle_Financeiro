@@ -874,7 +874,7 @@ def render_analises(df):
 
             st.dataframe(tabela_cc, use_container_width=True)
 
-     st.markdown("---")
+    st.markdown("---")
 
     # ----------------------------
     # 4️⃣ EVOLUÇÃO DO PATRIMÔNIO INVESTIDO – ANO A ANO
