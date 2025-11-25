@@ -519,7 +519,8 @@ def main():
             df_hist_fmt = df_hist_chart.copy()
             for col in df_hist_fmt.columns:
                 df_hist_fmt[col] = df_hist_fmt[col].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    
+           
+            df_hist_fmt = df_hist_fmt.rename_axis("Mês").reset_index()
             st.dataframe(df_hist_fmt, use_container_width=True)
         else:
             st.info("Ainda não há dados suficientes para histórico.")
