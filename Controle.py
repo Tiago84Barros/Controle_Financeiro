@@ -5,16 +5,19 @@ import altair as alt
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
-# Configuração do app (nome e ícone)
+import streamlit as st
+
 st.set_page_config(
     page_title="Controle Financeiro",
     page_icon="💰",
-    layout="wide"
 )
 
-# ---- A partir daqui vem o restante do seu app ----
-st.title("Meu Controle Financeiro")
-# ... resto do código ...
+st.markdown(
+    """
+    <link rel="manifest" href="manifes.json">
+    """,
+    unsafe_allow_html=True
+)
 
 DB_PATH = "finance.db"
 
