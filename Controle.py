@@ -5,6 +5,17 @@ import altair as alt
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
+# Configuração do app (nome e ícone)
+st.set_page_config(
+    page_title="Controle Financeiro",
+    page_icon="💰",
+    layout="wide"
+)
+
+# ---- A partir daqui vem o restante do seu app ----
+st.title("Meu Controle Financeiro")
+# ... resto do código ...
+
 DB_PATH = "finance.db"
 
 # ---------- Banco de Dados ----------
