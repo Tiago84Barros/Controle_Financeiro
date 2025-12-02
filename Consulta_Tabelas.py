@@ -1,4 +1,4 @@
-# consulta_tabelas.py
+# Consulta_Tabelas.py
 import streamlit as st
 import pandas as pd
 
