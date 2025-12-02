@@ -5,7 +5,7 @@ import altair as alt
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
-from consulta_tabelas import pagina_consulta_tabelas
+from Consulta_Tabelas import pagina_consulta_tabelas
 
 
 st.set_page_config(
