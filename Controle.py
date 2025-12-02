@@ -625,23 +625,24 @@ def main():
             st.info("Edite as linhas desejadas e clique em **Salvar alterações** para gravar no banco.")
 
             # DataFrame para edição (mantém valores numéricos e datas nativas)
-            df_edit = df_sorted.copy()
-            df_edit = df_edit[
-                ["type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
-            ]
-            df_edit = df_edit.rename(
-                columns={
-                    "id": "ID",
-                    "type": "Tipo",
-                    "category": "Categoria",
-                    "date": "Data",
-                    "amount": "Valor",
-                    "payment_type": "Forma",
-                    "card_name": "Cartão",
-                    "installments": "Parcelas",
-                    "description": "Descrição",
-                }
-            )
+            df_edit = df_sorted[
+            ["id", "type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
+        ].copy()
+        
+        df_edit = df_edit.rename(
+            columns={
+                "id": "ID",
+                "type": "Tipo",
+                "category": "Categoria",
+                "date": "Data",
+                "amount": "Valor",
+                "payment_type": "Forma",
+                "card_name": "Cartão",
+                "installments": "Parcelas",
+                "description": "Descrição",
+            }
+        )
+
 
             edited_df = st.data_editor(
                 df_edit,
