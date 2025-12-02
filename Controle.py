@@ -5,7 +5,8 @@ import altair as alt
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 
-import streamlit as st
+from consulta_tabelas import pagina_consulta_tabelas
+
 
 st.set_page_config(
     page_title="Controle Financeiro",
@@ -256,25 +257,31 @@ def main():
     apply_custom_style()
     init_db()
 
-    # --- Navegação entre páginas (vem primeiro!) ---
+    # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
         "Navegação",
-        ["Dashboard", "Análises"],
+        ["Dashboard", "Análises", "Consulta de Tabelas"],
         horizontal=False
     )
 
-    # Carrega dados uma única vez
+    # 👉 Se for consulta, chama o módulo novo e sai
+    if pagina == "Consulta de Tabelas":
+        pagina_consulta_tabelas(get_connection)
+        return
+
+    # Carrega dados uma única vez (para Dashboard e Análises)
     df = load_data()
 
-    # Se for página de análises, não renderiza o dashboard
+    # 👉 Se for análises, chama render_analises e sai
     if pagina == "Análises":
         render_analises(df)
-        return   # ou st.stop()
+        return
 
     # ------------------------------------------------------------------
     # Se chegou aqui, é porque a página selecionada é "Dashboard"
+    # (resto do seu código do Dashboard fica exatamente como já está)
     # ------------------------------------------------------------------
-
+ 
     # --- SIDEBAR DO DASHBOARD ---
     with st.sidebar:
         st.header("Filtros")
