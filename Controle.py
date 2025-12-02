@@ -626,22 +626,23 @@ def main():
 
             # DataFrame para edição (mantém valores numéricos e datas nativas)
             df_edit = df_sorted[
-            ["id", "type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
-        ].copy()
-        
-        df_edit = df_edit.rename(
-            columns={
-                "id": "ID",
-                "type": "Tipo",
-                "category": "Categoria",
-                "date": "Data",
-                "amount": "Valor",
-                "payment_type": "Forma",
-                "card_name": "Cartão",
-                "installments": "Parcelas",
-                "description": "Descrição",
-            }
-        )
+                ["id", "type", "category", "date", "amount", "payment_type", "card_name", "installments", "description"]
+            ].copy()
+            
+            df_edit = df_edit.rename(
+                columns={
+                    "id": "ID",
+                    "type": "Tipo",
+                    "category": "Categoria",
+                    "date": "Data",
+                    "amount": "Valor",
+                    "payment_type": "Forma",
+                    "card_name": "Cartão",
+                    "installments": "Parcelas",
+                    "description": "Descrição",
+                }
+            )
+
 
 
             edited_df = st.data_editor(
