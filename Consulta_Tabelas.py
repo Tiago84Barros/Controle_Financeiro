@@ -101,7 +101,7 @@ def montar_query(tipo, categoria=None, ano=None, mes=None, dia=None, texto=None)
         SELECT *
         FROM transactions
         {where_sql}
-        ORDER BY date DESC, id DESC
+        ORDER BY category, date DESC, id DESC
     """
     return query, params
 
