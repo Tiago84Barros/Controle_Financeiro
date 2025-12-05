@@ -546,19 +546,63 @@ def main():
 
         
     with col_g2:
-        st.markdown("#### Histórico de 6 meses (Receitas x Despesas)")
+        st.markdown("#### Histórico de 6 meses (Receitas x Despesas x Investimentos)")
         if not df_hist.empty:
+            # df_hist vem como pivot (index = ym, colunas = tipos)
             df_hist_chart = df_hist.copy()
-            df_hist_chart.index = pd.to_datetime(df_hist_chart.index).strftime("%m/%y")
     
-            # Mostra gráfico
-            st.line_chart(df_hist_chart)
+            # Garante datetime e cria label de mês
+            df_hist_chart.index = pd.to_datetime(df_hist_chart.index)
+            df_hist_chart["mes"] = df_hist_chart.index.strftime("%m/%y")
     
-            # --- Formatação BRL da tabela ---
-            df_hist_fmt = df_hist_chart.copy()
+            # Renomeia a coluna de investimento para um nome mais amigável
+            if "investimento" in df_hist_chart.columns:
+                df_hist_chart = df_hist_chart.rename(columns={"investimento": "Investimentos"})
+    
+            # Deixa em formato longo para o Altair
+            df_long = df_hist_chart.melt(
+                id_vars="mes",
+                var_name="Tipo",
+                value_name="Valor"
+            )
+    
+            # Gráfico de linhas com cores específicas
+            chart_hist = (
+                alt.Chart(df_long)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("mes:N", title="Mês"),
+                    y=alt.Y("Valor:Q", title="Valor (R$)"),
+                    color=alt.Color(
+                        "Tipo:N",
+                        title="Tipo",
+                        scale=alt.Scale(
+                            domain=["Receitas", "Investimentos", "Despesas"],
+                            range=["#3b82f6", "#22c55e", "#ef4444"],  # azul, verde, vermelho
+                        ),
+                    ),
+                    tooltip=[
+                        alt.Tooltip("mes:N", title="Mês"),
+                        alt.Tooltip("Tipo:N", title="Tipo"),
+                        alt.Tooltip("Valor:Q", title="Valor", format=",.2f"),
+                    ],
+                )
+                .properties(
+                    width="container",
+                    height=320,
+                )
+            )
+    
+            st.altair_chart(chart_hist, use_container_width=True)
+    
+            # --- Tabela formatada em BRL ---
+            df_hist_tab = df_hist_chart.set_index("mes").drop(columns=[], errors="ignore")
+            df_hist_fmt = df_hist_tab.copy()
             for col in df_hist_fmt.columns:
-                df_hist_fmt[col] = df_hist_fmt[col].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
+                df_hist_fmt[col] = df_hist_fmt[col].apply(
+                    lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                )
+    
             df_hist_fmt = df_hist_fmt.rename_axis("Mês").reset_index()
             st.dataframe(df_hist_fmt, use_container_width=True)
         else:
