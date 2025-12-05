@@ -833,14 +833,28 @@ def render_analises(df):
     # ----------------------------
     st.subheader("💳 Gastos com pagamento de cartão (mensal)")
 
-    # Filtra somente saídas pagas com cartão de crédito (sem distinguir qual cartão)
-    df_cc = df[
-        (df["type"] == "saida") &
-        (df["payment_type"] == "Cartão de crédito")
+    # Normaliza categoria para comparar em minúsculas
+    df_temp = df.copy()
+    df_temp["category_norm"] = (
+        df_temp["category"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    # Filtra:
+    #  - saídas com forma de pagamento "Cartão de crédito"
+    #  OU
+    #  - saídas cuja categoria é "Pagamento de Cartão"
+    df_cc = df_temp[
+        (df_temp["type"] == "saida") & (
+            (df_temp["payment_type"] == "Cartão de crédito") |
+            (df_temp["category_norm"] == "pagamento de cartão")
+        )
     ].copy()
 
     if df_cc.empty:
-        st.info("Não há lançamentos com forma de pagamento 'Cartão de crédito' para análise ainda.")
+        st.info("Não há lançamentos relacionados a cartão de crédito para análise ainda.")
     else:
         # Garante tipo datetime e cria coluna de ano
         df_cc["date"] = pd.to_datetime(df_cc["date"])
@@ -869,7 +883,7 @@ def render_analises(df):
             # mês numérico
             df_cc_ano["mes"] = df_cc_ano["date"].dt.month
 
-            # 🔹 AGRUPA APENAS POR MÊS (SEM card_name)
+            # 🔹 AGRUPA APENAS POR MÊS (TOTAL GERAL DO CARTÃO)
             df_cc_mes = (
                 df_cc_ano.groupby("mes")["amount"]
                 .sum()
@@ -887,10 +901,10 @@ def render_analises(df):
                 .mark_bar()
                 .encode(
                     x=alt.X("mes_label:N", title="Mês"),
-                    y=alt.Y("amount:Q", title="Total pago no cartão (R$)"),
+                    y=alt.Y("amount:Q", title="Total relacionado a cartão (R$)"),
                     tooltip=[
                         alt.Tooltip("mes_label:N", title="Mês"),
-                        alt.Tooltip("amount:Q", title="Total pago", format=",.2f"),
+                        alt.Tooltip("amount:Q", title="Total", format=",.2f"),
                     ],
                 )
                 .properties(
@@ -910,12 +924,7 @@ def render_analises(df):
                 .replace("X", ".")
             )
 
-            tabela_cc = tabela_cc.rename(
-                columns={
-                    "mes_label": "Mês",
-                }
-            )
-
+            tabela_cc = tabela_cc.rename(columns={"mes_label": "Mês"})
             tabela_cc = tabela_cc[["Mês", "Total (R$)"]]
 
             st.dataframe(tabela_cc, use_container_width=True)
