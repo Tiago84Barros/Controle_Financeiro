@@ -277,11 +277,7 @@ def main():
         render_analises(df)
         return
 
-    # ------------------------------------------------------------------
-    # Se chegou aqui, é porque a página selecionada é "Dashboard"
-    # (resto do seu código do Dashboard fica exatamente como já está)
-    # ------------------------------------------------------------------
- 
+   
     # --- SIDEBAR DO DASHBOARD ---
     with st.sidebar:
         st.header("Filtros")
@@ -833,24 +829,18 @@ def render_analises(df):
     st.markdown("---")
 
     # ----------------------------
-    # 3️⃣ GASTOS COM PAGAMENTO DE CARTÃO (MENSAL, POR ANO)
+    # 3️⃣ GASTOS COM PAGAMENTO DE CARTÃO (MENSAL) – TOTAL GERAL
     # ----------------------------
     st.subheader("💳 Gastos com pagamento de cartão (mensal)")
 
-    # Filtra somente saídas e normaliza categoria
-    df_cc = df[df["type"] == "saida"].copy()
-    df_cc["category_norm"] = (
-        df_cc["category"]
-        .astype(str)
-        .str.strip()
-        .str.lower()
-    )
-
-    alvo = "pagamento de cartão"
-    df_cc = df_cc[df_cc["category_norm"] == alvo]
+    # Filtra somente saídas pagas com cartão de crédito (sem distinguir qual cartão)
+    df_cc = df[
+        (df["type"] == "saida") &
+        (df["payment_type"] == "Cartão de crédito")
+    ].copy()
 
     if df_cc.empty:
-        st.info("Não há lançamentos na categoria 'Pagamento de Cartão' para análise ainda.")
+        st.info("Não há lançamentos com forma de pagamento 'Cartão de crédito' para análise ainda.")
     else:
         # Garante tipo datetime e cria coluna de ano
         df_cc["date"] = pd.to_datetime(df_cc["date"])
@@ -874,13 +864,14 @@ def render_analises(df):
         df_cc_ano = df_cc[df_cc["year"] == ano_ref].copy()
 
         if df_cc_ano.empty:
-            st.info(f"Não há gastos com 'Pagamento de Cartão' em {ano_ref}.")
+            st.info(f"Não há gastos com cartão de crédito em {ano_ref}.")
         else:
             # mês numérico
             df_cc_ano["mes"] = df_cc_ano["date"].dt.month
-            # agrupa por mês e cartão
+
+            # 🔹 AGRUPA APENAS POR MÊS (SEM card_name)
             df_cc_mes = (
-                df_cc_ano.groupby(["mes", "card_name"])["amount"]
+                df_cc_ano.groupby("mes")["amount"]
                 .sum()
                 .reset_index()
             )
@@ -896,16 +887,10 @@ def render_analises(df):
                 .mark_bar()
                 .encode(
                     x=alt.X("mes_label:N", title="Mês"),
-                    y=alt.Y("amount:Q", title="Total pago (R$)"),
-                    color=alt.Color("card_name:N", title="Cartão"),
+                    y=alt.Y("amount:Q", title="Total pago no cartão (R$)"),
                     tooltip=[
                         alt.Tooltip("mes_label:N", title="Mês"),
-                        alt.Tooltip("card_name:N", title="Cartão"),
-                        alt.Tooltip(
-                            "amount:Q",
-                            title="Total pago",
-                            format=",.2f",
-                        ),
+                        alt.Tooltip("amount:Q", title="Total pago", format=",.2f"),
                     ],
                 )
                 .properties(
@@ -917,12 +902,7 @@ def render_analises(df):
             st.altair_chart(chart_cc, use_container_width=True)
 
             # ---------- TABELA RESUMO ----------
-            tabela_cc = (
-                df_cc_mes.groupby(["mes_label", "card_name"])["amount"]
-                .sum()
-                .reset_index()
-            )
-
+            tabela_cc = df_cc_mes[["mes_label", "amount"]].copy()
             tabela_cc["Total (R$)"] = tabela_cc["amount"].apply(
                 lambda v: f"R$ {v:,.2f}"
                 .replace(",", "X")
@@ -933,13 +913,13 @@ def render_analises(df):
             tabela_cc = tabela_cc.rename(
                 columns={
                     "mes_label": "Mês",
-                    "card_name": "Cartão",
                 }
             )
 
-            tabela_cc = tabela_cc[["Mês", "Cartão", "Total (R$)"]]
+            tabela_cc = tabela_cc[["Mês", "Total (R$)"]]
 
             st.dataframe(tabela_cc, use_container_width=True)
+
 
     st.markdown("---")
 
