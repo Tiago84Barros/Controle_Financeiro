@@ -104,11 +104,19 @@ def authenticate_user(email: str, password: str):
     return {"id": user_id, "email": user_email}
 
 def create_user(email: str, password: str):
-    """Cria um usuário manualmente via Python (admin only)."""
+    """Cria um novo usuário no Supabase via tela de cadastro."""
     hashed = hash_password(password)
 
     conn = get_connection()
     cur = conn.cursor()
+
+    # Verifica se email já existe
+    cur.execute("SELECT id FROM app_users WHERE email = %s", (email.strip().lower(),))
+    existing = cur.fetchone()
+
+    if existing:
+        conn.close()
+        return None  # já existe
 
     cur.execute(
         """
@@ -126,23 +134,70 @@ def create_user(email: str, password: str):
     return user_id
 
 def login_screen():
-    """
-    Tela de login. 
-    - Se já estiver logado, mostra mensagem e botão de logout.
-    - Se não, mostra formulário de login.
-    Retorna o dict do usuário logado ou None.
-    """
-    # Se já estiver logado na sessão
-    if "user" in st.session_state and st.session_state["user"] is not None:
-        user = st.session_state["user"]
+    """Tela de login com opção de criar novo usuário."""
+    st.title("🔐 Acesso ao Sistema")
 
+    # Se já está logado:
+    if "user" in st.session_state and st.session_state["user"]:
+        user = st.session_state["user"]
         with st.sidebar:
-            st.markdown(f"#### 👤 {user['email']}")
+            st.markdown(f"**Usuário:** {user['email']}")
             if st.button("Sair"):
                 st.session_state["user"] = None
-                st.experimental_rerun()
-
+                st.rerun()
         return user
+
+    # -----------------------
+    # ABA DE LOGIN / CADASTRO
+    # -----------------------
+    tab_login, tab_signup = st.tabs(["Entrar", "Criar Conta"])
+
+    # -------------------------------------
+    # LOGIN
+    # -------------------------------------
+    with tab_login:
+        with st.form("login_form"):
+            email = st.text_input("E-mail")
+            password = st.text_input("Senha", type="password")
+            submit = st.form_submit_button("Entrar")
+
+        if submit:
+            user = authenticate_user(email, password)
+            if user:
+                st.session_state["user"] = user
+                st.success("Login realizado com sucesso!")
+                st.rerun()
+            else:
+                st.error("E-mail ou senha inválidos.")
+
+    # -------------------------------------
+    # CADASTRO
+    # -------------------------------------
+    with tab_signup:
+        st.markdown("### Criar nova conta")
+
+        with st.form("signup_form"):
+            new_email = st.text_input("Novo e-mail")
+            new_pass = st.text_input("Crie uma senha", type="password")
+            confirm_pass = st.text_input("Repita a senha", type="password")
+
+            create_btn = st.form_submit_button("Criar Conta")
+
+        if create_btn:
+            if new_pass != confirm_pass:
+                st.error("As senhas não coincidem.")
+            elif len(new_pass) < 4:
+                st.warning("A senha deve ter pelo menos 4 caracteres.")
+            else:
+                user_id = create_user(new_email, new_pass)
+                if user_id is None:
+                    st.error("Este e-mail já está cadastrado.")
+                else:
+                    st.success("Conta criada com sucesso! Agora faça login.")
+                    st.balloons()
+
+    return None
+
 
     # Se NÃO estiver logado, mostra formulário central
     st.title("🔐 Login - Controle Financeiro")
