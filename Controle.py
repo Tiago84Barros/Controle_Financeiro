@@ -103,6 +103,27 @@ def authenticate_user(email: str, password: str):
 
     return {"id": user_id, "email": user_email}
 
+def create_user(email: str, password: str):
+    """Cria um usuário manualmente via Python (admin only)."""
+    hashed = hash_password(password)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO app_users (email, password)
+        VALUES (%s, %s)
+        RETURNING id
+        """,
+        (email.strip().lower(), hashed),
+    )
+
+    user_id = cur.fetchone()[0]
+    conn.commit()
+    conn.close()
+
+    return user_id
 
 def login_screen():
     """
@@ -341,6 +362,17 @@ def main():
 
     apply_custom_style()
     init_db()
+
+    # --- LOGIN ---
+    user = login_screen()
+    if not user:
+        # Se não estiver logado, para aqui – o restante do app não aparece
+        return
+
+    # DAQUI PARA BAIXO fica o teu código atual do dashboard:
+    # sidebar de filtros, novo lançamento, gráficos, últimos lançamentos, etc.
+    # ...
+
 
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
