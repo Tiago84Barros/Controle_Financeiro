@@ -4,6 +4,7 @@ from datetime import date
 import altair as alt
 from dateutil.relativedelta import relativedelta
 import pandas as pd
+import hashlib
 
 from Consulta_Tabelas import pagina_consulta_tabelas
 
@@ -58,6 +59,90 @@ def load_data():
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"]).dt.date
     return df
+
+# ---------- Autenticação / Login ----------
+
+def hash_password(password: str) -> str:
+    """Gera um hash simples (SHA256) para a senha."""
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Confere se a senha digitada gera o mesmo hash salvo no banco."""
+    return hash_password(password) == hashed
+
+
+def authenticate_user(email: str, password: str):
+    """
+    Busca o usuário na tabela app_users e verifica a senha.
+    Retorna um dict com dados do usuário ou None se falhar.
+    """
+    if not email or not password:
+        return None
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, email, password
+        FROM app_users
+        WHERE email = %s
+        """,
+        (email.strip().lower(),),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    user_id, user_email, stored_hash = row
+
+    if not verify_password(password, stored_hash):
+        return None
+
+    return {"id": user_id, "email": user_email}
+
+
+def login_screen():
+    """
+    Tela de login. 
+    - Se já estiver logado, mostra mensagem e botão de logout.
+    - Se não, mostra formulário de login.
+    Retorna o dict do usuário logado ou None.
+    """
+    # Se já estiver logado na sessão
+    if "user" in st.session_state and st.session_state["user"] is not None:
+        user = st.session_state["user"]
+
+        with st.sidebar:
+            st.markdown(f"#### 👤 {user['email']}")
+            if st.button("Sair"):
+                st.session_state["user"] = None
+                st.experimental_rerun()
+
+        return user
+
+    # Se NÃO estiver logado, mostra formulário central
+    st.title("🔐 Login - Controle Financeiro")
+
+    with st.form("login_form"):
+        email = st.text_input("E-mail")
+        password = st.text_input("Senha", type="password")
+        submit = st.form_submit_button("Entrar")
+
+    if submit:
+        user = authenticate_user(email, password)
+        if user:
+            st.session_state["user"] = user
+            st.success("Login realizado com sucesso! ✅")
+            st.experimental_rerun()
+        else:
+            st.error("E-mail ou senha inválidos.")
+
+    # Sem usuário autenticado
+    return None
+
 
 # ---------- Lógica de Resumo ----------
 
