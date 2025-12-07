@@ -1068,24 +1068,6 @@ def render_analises(df):
 
     st.markdown("---")
 
-    # -----------------------------------
-    # 2️⃣ DESPESAS POR FORMA DE PAGAMENTO
-    # -----------------------------------
-    st.subheader("💳 Despesas por forma de pagamento")
-
-    df_pag = df[df["type"] == "saida"].groupby("payment_type")["amount"].sum().reset_index()
-
-    df_pag["amount_fmt"] = df_pag["amount"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-    st.dataframe(df_pag.rename(columns={
-        "payment_type": "Forma de Pagamento",
-        "amount_fmt": "Total (R$)"
-    })[["Forma de Pagamento", "Total (R$)"]], use_container_width=True)
-
-    st.bar_chart(df_pag.set_index("payment_type")["amount"])
-
-    st.markdown("---")
-
     # ----------------------------
     # 3️⃣ GASTOS COM PAGAMENTO DE CARTÃO (MENSAL) – TOTAL GERAL
     # ----------------------------
