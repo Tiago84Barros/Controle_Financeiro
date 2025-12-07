@@ -15,17 +15,18 @@ def format_brl(valor):
     return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def carregar_opcoes(conn, tipo):
+def carregar_opcoes(conn, tipo, user_id):
     """
-    Carrega categorias e anos da tabela transactions filtrando por type (entrada/saida/investimento).
+    Carrega categorias e anos da tabela transactions filtrando por type (entrada/saida/investimento)
+    e pelo usuário.
     """
-    params = [tipo]
+    params = [user_id, tipo]
 
     # Categorias
     query_cat = """
         SELECT DISTINCT category
         FROM transactions
-        WHERE type = %s
+        WHERE user_id = %s AND type = %s
         ORDER BY category
     """
     df_cat = pd.read_sql(query_cat, conn, params=params)
@@ -35,7 +36,7 @@ def carregar_opcoes(conn, tipo):
     query_ano = """
         SELECT DISTINCT EXTRACT(YEAR FROM date)::int AS ano
         FROM transactions
-        WHERE type = %s
+        WHERE user_id = %s AND type = %s
         ORDER BY ano DESC
     """
     df_ano = pd.read_sql(query_ano, conn, params=params)
@@ -44,16 +45,17 @@ def carregar_opcoes(conn, tipo):
     return categorias, anos
 
 
-def carregar_dias(conn, tipo, ano, mes, categoria=None):
+def carregar_dias(conn, tipo, ano, mes, categoria=None, user_id=None):
     if not ano or ano == "Todos" or not mes or mes == "Todos":
         return []
 
     where_clauses = [
+        "user_id = %s",
         "type = %s",
         "EXTRACT(YEAR FROM date) = %s",
         "EXTRACT(MONTH FROM date) = %s",
     ]
-    params = [tipo, int(ano), int(mes)]
+    params = [user_id, tipo, int(ano), int(mes)]
 
     if categoria and categoria != "Todas":
         where_clauses.append("category = %s")
@@ -71,9 +73,9 @@ def carregar_dias(conn, tipo, ano, mes, categoria=None):
     return df["dia"].tolist()
 
 
-def montar_query(tipo, categoria=None, ano=None, mes=None, dia=None, texto=None):
-    where_clauses = ["type = %s"]
-    params = [tipo]
+def montar_query(tipo, categoria=None, ano=None, mes=None, dia=None, texto=None, user_id=None):
+    where_clauses = ["user_id = %s", "type = %s"]
+    params = [user_id, tipo]
 
     if categoria and categoria != "Todas":
         where_clauses.append("category = %s")
@@ -106,15 +108,15 @@ def montar_query(tipo, categoria=None, ano=None, mes=None, dia=None, texto=None)
     return query, params
 
 
-def calcular_resumos(conn, tipo, categoria=None, ano=None, mes=None, texto=None):
+def calcular_resumos(conn, tipo, categoria=None, ano=None, mes=None, texto=None, user_id=None):
     """
     Calcula:
       - total_ano: soma de amount no ano filtrado
       - total_mes: soma de amount no ano+mês filtrados
-    Sempre respeitando type (entrada/saida/investimento) e categoria.
+    Sempre respeitando type (entrada/saida/investimento), categoria e usuário.
     """
-    base_clauses = ["type = %s"]
-    base_params = [tipo]
+    base_clauses = ["user_id = %s", "type = %s"]
+    base_params = [user_id, tipo]
 
     if categoria and categoria != "Todas":
         base_clauses.append("category = %s")
@@ -154,6 +156,12 @@ def calcular_resumos(conn, tipo, categoria=None, ano=None, mes=None, texto=None)
 def pagina_consulta_tabelas(get_connection):
     st.title("🔍 Consulta de lançamentos")
 
+    # Verifica usuário logado
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        st.warning("Você precisa estar logado para consultar seus lançamentos.")
+        return
+
     conn = get_connection()
 
     # Escolha do tipo de lançamento (mesma lógica do app)
@@ -170,8 +178,8 @@ def pagina_consulta_tabelas(get_connection):
     else:
         tipo = "investimento"
 
-    # Carrega categorias e anos para esse tipo
-    categorias, anos = carregar_opcoes(conn, tipo)
+    # Carrega categorias e anos para esse tipo e usuário
+    categorias, anos = carregar_opcoes(conn, tipo, user_id)
 
     with st.form("filtros_busca"):
         col1, col2, col3, col4 = st.columns(4)
@@ -199,7 +207,7 @@ def pagina_consulta_tabelas(get_connection):
         # Dias
         with col4:
             if ano_sel != "Todos" and mes_sel != "Todos":
-                dias_disponiveis = carregar_dias(conn, tipo, ano_sel, mes_sel, categoria_sel)
+                dias_disponiveis = carregar_dias(conn, tipo, ano_sel, mes_sel, categoria_sel, user_id=user_id)
                 dia_opcoes = ["Todos"] + dias_disponiveis if dias_disponiveis else ["Todos"]
             else:
                 dia_opcoes = ["Todos"]
@@ -221,6 +229,7 @@ def pagina_consulta_tabelas(get_connection):
         mes=mes_sel,
         dia=dia_sel,
         texto=texto_busca,
+        user_id=user_id,
     )
 
     df = pd.read_sql(query, conn, params=params)
@@ -243,6 +252,7 @@ def pagina_consulta_tabelas(get_connection):
         ano=ano_sel,
         mes=mes_sel,
         texto=texto_busca,
+        user_id=user_id,
     )
 
     st.subheader("📊 Resumo")
