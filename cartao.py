@@ -22,15 +22,6 @@ def load_card_transactions(user_id: int) -> pd.DataFrame:
     conn = get_connection()
     query = """
         SELECT
-            user_id,
-            t_type,
-            category,
-            date,
-            amount,
-            payment_type,
-            card_name,
-            installments,
-            description
         FROM transactions
         WHERE user_id = %s
           AND t_type = 'Despesa'
@@ -41,6 +32,14 @@ def load_card_transactions(user_id: int) -> pd.DataFrame:
 
     if df.empty:
         return df
+
+    if "card_name" not in df.columns:
+        df["card_name"] = ""
+    if "installments" not in df.columns:
+        df["installments"] = 1
+    if "description" not in df.columns:
+        df["description"] = ""
+    
 
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df["installments"] = df["installments"].fillna(1).astype(int)
