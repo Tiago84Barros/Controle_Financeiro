@@ -434,7 +434,7 @@ def apply_custom_style():
 def main():
     # você já chamou st.set_page_config lá em cima do arquivo;
     # aqui pode até remover para evitar aviso de "set_page_config só 1 vez"
-     st.set_page_config(
+    st.set_page_config(
         page_title="Dashboard Financeiro",
         page_icon="💰",
         layout="wide",
