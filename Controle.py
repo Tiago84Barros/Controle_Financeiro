@@ -447,7 +447,7 @@ def main():
         pagina_consulta_tabelas(get_connection)
         return
 
-     if "user_id" not in st.session_state:
+    if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
         st.stop()
 
