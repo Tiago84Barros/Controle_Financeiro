@@ -1047,17 +1047,24 @@ def render_analises(df):
         .encode(
             x=alt.X("year:N", title="Ano"),
             y=alt.Y("amount:Q", title="Valor (R$)"),
-            color=alt.Color("type:N", title="Tipo"),
+            xOffset="type",                                # 👉 BARRAS LADO A LADO
+            color=alt.Color(
+                "type:N",
+                title="Tipo",
+                scale=alt.Scale(
+                    domain=["entrada", "saida", "investimento"],
+                    range=["#3b82f6", "#ef4444", "#22c55e"],  # azul, vermelho, verde
+                ),
+            ),
             tooltip=["year:N", "type:N", "amount:Q"],
         )
         .properties(
-            width="container",   # ocupa a largura disponível
+            width="container",
             height=320
         )
     )
     
     st.altair_chart(chart_yoy, use_container_width=True)
-
 
     st.markdown("---")
 
