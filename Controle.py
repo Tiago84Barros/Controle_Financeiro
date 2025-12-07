@@ -350,6 +350,7 @@ def apply_custom_style():
         .cf-header {
             display: flex;
             justify-content: space-between;
+            flex-wrap: wrap;
             align-items: center;
             margin-bottom: 1.5rem;
             padding: 0.5rem 0.25rem 0.75rem;
