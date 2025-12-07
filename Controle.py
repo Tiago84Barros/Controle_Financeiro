@@ -55,10 +55,14 @@ def insert_transaction(user_id, t_type, category, d, amount, payment_type, card_
 
 def load_data(user_id):
     conn = get_connection()
-    df = pd.read_sql_query(
-        "SELECT * FROM transactions WHERE user_id = %s ORDER BY date DESC",
+    df = pd.read_sql_query("""
+        SELECT * 
+        FROM transactions 
+        WHERE user_id = %s AND user_id IS NOT NULL
+        ORDER BY date DESC
+        """,
         conn,
-        params=(str(user_id),),
+        params=(int(user_id),),
     )
     conn.close()
     if not df.empty:
