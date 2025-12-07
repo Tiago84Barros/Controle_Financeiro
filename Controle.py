@@ -58,13 +58,11 @@ def load_data(user_id):
     df = pd.read_sql_query(
         "SELECT * FROM transactions WHERE user_id = %s ORDER BY date DESC",
         conn,
-        params=[str(user_id)],
+        params=(str(user_id),),
     )
     conn.close()
-    
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"]).dt.date
-    
     return df
 
 
@@ -449,6 +447,12 @@ def main():
         pagina_consulta_tabelas(get_connection)
         return
 
+     if "user_id" not in st.session_state:
+        st.error("Erro: usuário não autenticado. Volte para a tela de login.")
+        st.stop()
+
+    user_id = st.session_state["user_id"]
+
     # Carrega dados uma única vez (para Dashboard e Análises)
     df = load_data(user_id)
 
@@ -575,7 +579,12 @@ def main():
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
 
- 
+     if "user_id" not in st.session_state:
+        st.error("Erro: usuário não autenticado. Volte para a tela de login.")
+        st.stop()
+
+    user_id = st.session_state["user_id"]
+
     # --- DADOS ---
     df = load_data(user_id)
        
