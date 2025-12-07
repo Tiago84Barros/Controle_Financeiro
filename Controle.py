@@ -569,15 +569,7 @@ def main():
         ]
     
         st.header("Novo lançamento")
-
-        # 🔹 Campo de valor com máscara (FORA do form)
-        init_valor_state()
-        st.text_input(
-            "Valor (R$)",
-            key="valor_input",
-            on_change=handle_valor_change,
-        )
-    
+        
         # 🔹 Tipo agora tem 3 opções
         t_type = st.radio("Tipo", ["entrada", "saida", "investimento"], horizontal=True)
     
@@ -604,6 +596,14 @@ def main():
                 format="DD/MM/YYYY",
                 key="data_lanc"
             )
+
+            # 🔹 Campo Valor (R$) COM MÁSCARA – AGORA AQUI
+            init_valor_state()
+            st.text_input(
+                "Valor (R$)",
+                key="valor_input",
+                on_change=handle_valor_change,
+            )
        
             # 🔹 Forma de pagamento (só aparece para saída e entrada)
             if t_type in ["entrada", "saida"]:
@@ -613,7 +613,8 @@ def main():
                 )
             else:
                 payment_type = "Conta"   # investimento sai sempre da conta
-    
+          
+   
             card_name = ""
             installments = 1
     
@@ -623,14 +624,15 @@ def main():
     
             description = st.text_area("Descrição (opcional)")
     
-            submitted = st.form_submit_button("Salvar lançamento")
-    
-            if submitted:
+            # 🔘 Botão de salvar (substitui o form_submit_button)
+            if st.button("Salvar lançamento"):
+                # pega o valor formatado do estado
+                valor_str = st.session_state.get("valor_input", "0,00")
                 amount = parse_brl_to_float(valor_str)
-    
+            
                 if amount > 0 and category.strip():
                     insert_transaction(
-                        user_id,   # <--- muito importante
+                        user_id,
                         t_type,
                         category,
                         d,
@@ -638,15 +640,15 @@ def main():
                         payment_type,
                         card_name,
                         installments,
-                        description
-)
+                        description,
+                    )
                     st.success("Lançamento salvo com sucesso!")
-
-                    # reseta o campo de valor para o próximo lançamento
+            
+                    # reseta campo de valor para o próximo lançamento
                     st.session_state["valor_input"] = "0,00"
-                    
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
+
 
     if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
