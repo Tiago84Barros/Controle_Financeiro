@@ -480,7 +480,7 @@ def main():
         return
     # 👉 Se for cartão de crédito, chama o módulo e não renderiza o dashboard
     if pagina == "Cartão de Crédito":
-        pagina_cartao(user_id)
+        pagina_cartao(df)
         return
    
     # --- SIDEBAR DO DASHBOARD ---
