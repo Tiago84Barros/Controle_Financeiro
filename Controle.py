@@ -62,7 +62,7 @@ def load_data(user_id):
         ORDER BY date DESC
         """,
         conn,
-        params=(int(user_id),),
+        params=(str(user_id),),
     )
     conn.close()
     if not df.empty:
