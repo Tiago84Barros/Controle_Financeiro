@@ -942,7 +942,10 @@ def main():
                 }
             )
 
-
+            # 🔹 Formata o valor como texto BRL para edição (permite vírgula e ponto)
+            df_edit["Valor"] = df_edit["Valor"].apply(
+                lambda v: f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
 
             edited_df = st.data_editor(
                 df_edit,
@@ -952,7 +955,11 @@ def main():
                 column_config={
                     "ID": st.column_config.NumberColumn("ID", disabled=True),
                     "Data": st.column_config.DateColumn("Data"),
-                    "Valor": st.column_config.NumberColumn("Valor", step=10.0, format="%.2f"),
+                    # 🔹 Agora é TextColumn para aceitar vírgula/ponto
+                    "Valor": st.column_config.TextColumn(
+                        "Valor (R$)",
+                        help="Use vírgula como separador decimal (ex: 1.234,56)."
+                    ),
                     "Parcelas": st.column_config.NumberColumn("Parcelas", step=1),
                 },
             )
@@ -975,7 +982,9 @@ def main():
 
                 # converte tipos
                 to_update["date"] = pd.to_datetime(to_update["date"]).dt.date.apply(lambda d: d.isoformat())
-                to_update["amount"] = to_update["amount"].astype(float)
+
+                # 🔹 Converte string BRL para float usando sua função
+                to_update["amount"] = to_update["amount"].apply(parse_brl_to_float).astype(float)
                 to_update["installments"] = to_update["installments"].astype(int)
 
                 conn = get_connection()
@@ -1005,6 +1014,7 @@ def main():
 
                 st.success("Alterações salvas com sucesso!")
                 st.rerun()
+
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
 
