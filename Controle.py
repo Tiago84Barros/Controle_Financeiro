@@ -579,7 +579,7 @@ def main():
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
 
-     if "user_id" not in st.session_state:
+    if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
         st.stop()
 
