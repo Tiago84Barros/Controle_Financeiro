@@ -424,16 +424,14 @@ def main():
     apply_custom_style()
     init_db()
 
-    # --- LOGIN ---
-    user = login_screen()
-    if not user:
-        # Se não estiver logado, para aqui – o restante do app não aparece
-        return
+  # 1) Se não estiver logado, mostra tela de login/cadastro e para aqui
+    if "user_id" not in st.session_state:
+        render_login_page()   # função que desenha login + criar conta
+        st.stop()             # NÃO mostra nada de dashboard
 
-    # DAQUI PARA BAIXO fica o teu código atual do dashboard:
-    # sidebar de filtros, novo lançamento, gráficos, últimos lançamentos, etc.
-    # ...
-
+    # 2) Se chegou aqui, já está logado
+    user_id = st.session_state["user_id"]
+    user_email = st.session_state.get("email")
 
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
