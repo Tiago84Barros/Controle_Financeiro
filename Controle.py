@@ -147,8 +147,9 @@ def create_user(email: str, password: str):
 def login_screen():
     """Tela de login com opção de criar novo usuário."""
     
-    # A PARTIR DAQUI É A TELA DE LOGIN DE VERDADE
-    st.title("🔐 Acesso ao seu Controle Financeiro")
+    # Mostrar título apenas quando o usuário NÃO estiver logado
+    if "user" not in st.session_state or not st.session_state["user"]:
+        st.title("🔐 Acesso ao seu Controle Financeiro")
 
     # Se já está logado:
     if "user" in st.session_state and st.session_state["user"]:
