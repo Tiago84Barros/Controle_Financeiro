@@ -45,12 +45,12 @@ def insert_transaction(user_id, t_type, category, d, amount, payment_type, card_
         INSERT INTO transactions
         (user_id, type, category, date, amount, payment_type, card_name, installments, description)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-
         """,
-        (t_type, category, d, amount, payment_type, card_name, installments, description),
+        (user_id, t_type, category, d, amount, payment_type, card_name, installments, description),
     )
     conn.commit()
     conn.close()
+
 
 
 def load_data(user_id):
@@ -171,10 +171,13 @@ def login_screen():
             user = authenticate_user(email, password)
             if user:
                 st.session_state["user"] = user
+                st.session_state["user_id"] = user["id"]
+                st.session_state["email"] = user["email"]
                 st.success("Login realizado com sucesso!")
                 st.rerun()
             else:
                 st.error("E-mail ou senha inválidos.")
+
 
     # -------------------------------------
     # CADASTRO
@@ -217,10 +220,13 @@ def login_screen():
         user = authenticate_user(email, password)
         if user:
             st.session_state["user"] = user
-            st.success("Login realizado com sucesso! ✅")
-            st.experimental_rerun()
+            st.session_state["user_id"] = user["id"]
+            st.session_state["email"] = user["email"]
+            st.success("Login realizado com sucesso!")
+            st.rerun()
         else:
             st.error("E-mail ou senha inválidos.")
+
 
     # Sem usuário autenticado
     return None
@@ -415,23 +421,22 @@ def apply_custom_style():
 # ---------- App Streamlit ----------
 
 def main():
-    st.set_page_config(
-        page_title="Dashboard Financeiro",
-        page_icon="💰",
-        layout="wide",
-    )
+    # você já chamou st.set_page_config lá em cima do arquivo;
+    # aqui pode até remover para evitar aviso de "set_page_config só 1 vez"
 
     apply_custom_style()
     init_db()
 
-  # 1) Se não estiver logado, mostra tela de login/cadastro e para aqui
-    if "user_id" not in st.session_state:
-        render_login_page()   # função que desenha login + criar conta
-        st.stop()             # NÃO mostra nada de dashboard
+    # 1) Se não estiver logado, chama tela de login/cadastro
+    user = login_screen()  # desenha login + criar conta
+
+    if not user:
+        # Ainda não logou (primeiro acesso / preenchendo formulário)
+        st.stop()
 
     # 2) Se chegou aqui, já está logado
-    user_id = st.session_state["user_id"]
-    user_email = st.session_state.get("email")
+    user_id = user["id"]
+    user_email = user["email"]
 
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
