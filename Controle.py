@@ -334,6 +334,45 @@ def parse_brl_to_float(valor_str: str) -> float:
         return float(s)
     except ValueError:
         return 0.0
+# ----------------------------------
+
+def init_valor_state():
+    """Inicializa o campo de valor no estado da sessão."""
+    if "valor_input" not in st.session_state:
+        st.session_state["valor_input"] = "0,00"
+
+
+def handle_valor_change():
+    """
+    Lê o que o usuário digitou, mantém só dígitos
+    e formata como moeda brasileira, deslocando 2 casas.
+    
+    Exemplo de fluxo:
+    ""    -> 0,00
+    "1"   -> 0,01
+    "12"  -> 0,12
+    "120" -> 1,20
+    "1200"-> 12,00
+    "12003"-> 120,03
+    """
+    raw = st.session_state["valor_input"]
+
+    # pega só os dígitos que o usuário digitou
+    digits = "".join(ch for ch in raw if ch.isdigit())
+
+    if digits == "":
+        digits = "0"
+
+    # opcional: limita quantidade de dígitos pra não estourar
+    if len(digits) > 15:
+        digits = digits[-15:]
+
+    valor_int = int(digits)  # em centavos
+    valor_float = valor_int / 100  # converte para reais
+
+    # formata no padrão brasileiro
+    formatted = f"{valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    st.session_state["valor_input"] = formatted
 
 
 
@@ -530,6 +569,14 @@ def main():
         ]
     
         st.header("Novo lançamento")
+
+        # 🔹 Campo de valor com máscara (FORA do form)
+        init_valor_state()
+        st.text_input(
+            "Valor (R$)",
+            key="valor_input",
+            on_change=handle_valor_change,
+        )
     
         # 🔹 Tipo agora tem 3 opções
         t_type = st.radio("Tipo", ["entrada", "saida", "investimento"], horizontal=True)
@@ -557,10 +604,7 @@ def main():
                 format="DD/MM/YYYY",
                 key="data_lanc"
             )
-    
-            # 🔹 Campo Valor (como string BR)
-            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
-    
+       
             # 🔹 Forma de pagamento (só aparece para saída e entrada)
             if t_type in ["entrada", "saida"]:
                 payment_type = st.selectbox(
@@ -597,6 +641,10 @@ def main():
                         description
 )
                     st.success("Lançamento salvo com sucesso!")
+
+                    # reseta o campo de valor para o próximo lançamento
+                    st.session_state["valor_input"] = "0,00"
+                    
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
 
