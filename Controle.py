@@ -340,6 +340,10 @@ def apply_custom_style():
     st.markdown(
         """
         <style>
+        * {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
         /* Fundo geral */
         .stApp {
             background: radial-gradient(circle at top left, #0f172a 0, #020617 45%, #020617 100%);
@@ -380,6 +384,8 @@ def apply_custom_style():
 
         /* Cards de resumo */
         .cf-card {
+            width: 100%;
+            min-width: 0;
             border-radius: 0.9rem;
             padding: 0.9rem 1rem;
             border: 1px solid rgba(148, 163, 184, 0.25);
