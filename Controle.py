@@ -570,122 +570,74 @@ def main():
     
         st.header("Novo lançamento")
 
-        # Inicializar estados dos campos
-        if "categoria_personalizada" not in st.session_state:
-            st.session_state["categoria_personalizada"] = ""
-        
-        if "descricao_input" not in st.session_state:
-            st.session_state["descricao_input"] = ""
-        
-        if "cartao_input" not in st.session_state:
-            st.session_state["cartao_input"] = ""
-        
-        if "parcelas_input" not in st.session_state:
-            st.session_state["parcelas_input"] = 1
-        
-        if "data_input" not in st.session_state:
-            st.session_state["data_input"] = today  # data atual
-        
         # 🔹 Tipo agora tem 3 opções
         t_type = st.radio("Tipo", ["entrada", "saida", "investimento"], horizontal=True)
-              
-        # 🔹 Seleção dinâmica de categorias
-        if t_type == "entrada":
-            cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
-        elif t_type == "saida":
-            cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
-        else:  # investimento
-            cat_choice = st.selectbox("Categoria", investment_categories)
-
-        # Se escolher "Outra", mostra campo manual
-        if cat_choice == "Outra":
-            category = st.text_input(
-                "Categoria personalizada",
-                key="categoria_personalizada"
+    
+        with st.form("novo_lancamento", clear_on_submit=True):
+    
+            # 🔹 Seleção dinâmica de categorias
+            if t_type == "entrada":
+                cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
+            elif t_type == "saida":
+                cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
+            else:  # investimento
+                cat_choice = st.selectbox("Categoria", investment_categories)
+    
+            # Se escolher "Outra", mostra campo manual
+            if cat_choice == "Outra":
+                category = st.text_input("Categoria personalizada")
+            else:
+                category = cat_choice
+    
+            # 🔹 Data no formato BR
+            d = st.date_input(
+                "Data",
+                value=today,
+                format="DD/MM/YYYY",
+                key="data_lanc"
             )
-        else:
-            category = cat_choice
-
-        # 🔹 Data no formato BR
-        d = st.date_input(
-            "Data",
-            value=st.session_state["data_input"],
-            format="DD/MM/YYYY",
-            key="data_input"
-        )
-
-        # 🔹 Campo Valor (R$) COM MÁSCARA – AGORA AQUI
-        init_valor_state()
-        st.text_input(
-            "Valor (R$)",
-            key="valor_input",
-            on_change=handle_valor_change,
-        )
-   
-        # 🔹 Forma de pagamento (só aparece para saída e entrada)
-        if t_type in ["entrada", "saida"]:
-            payment_type = st.selectbox(
-                "Forma de pagamento",
-                ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
-            )
-        else:
-            payment_type = "Conta"   # investimento sai sempre da conta
-      
-
-        card_name = ""
-        installments = 1
-
-        if payment_type == "Cartão de crédito":
-            card_name = st.text_input(
-                "Nome do cartão",
-                key="cartao_input"
-            )
-            installments = st.number_input(
-                "Parcelas",
-                min_value=1,
-                value=st.session_state["parcelas_input"],
-                step=1,
-                key="parcelas_input"
-            )
-        else:
+    
+            # 🔹 Campo Valor (como string BR)
+            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
+    
+            # 🔹 Forma de pagamento (só aparece para saída e entrada)
+            if t_type in ["entrada", "saida"]:
+                payment_type = st.selectbox(
+                    "Forma de pagamento",
+                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
+                )
+            else:
+                payment_type = "Conta"   # investimento sai sempre da conta
+    
             card_name = ""
             installments = 1
-
-
-        description = st.text_area(
-            "Descrição (opcional)",
-            key="descricao_input"
-        )
-
-        # 🔘 Botão de salvar (substitui o form_submit_button)
-        if st.button("Salvar lançamento"):
-            # pega o valor formatado do estado
-            valor_str = st.session_state.get("valor_input", "0,00")
-            amount = parse_brl_to_float(valor_str)
-        
-            if amount > 0 and category.strip():
-                insert_transaction(
-                    user_id,
-                    t_type,
-                    category,
-                    d,
-                    amount,
-                    payment_type,
-                    card_name,
-                    installments,
-                    description,
-                )
-                st.success("Lançamento salvo com sucesso!")
-
-                st.session_state["valor_input"] = "0,00"
-                st.session_state["categoria_personalizada"] = ""
-                st.session_state["descricao_input"] = ""
-                st.session_state["cartao_input"] = ""
-                st.session_state["parcelas_input"] = 1
-                st.session_state["data_input"] = today
-                 
-            else:
-                st.error("Preencha categoria e valor maior que zero.")
+    
+            if payment_type == "Cartão de crédito":
+                card_name = st.text_input("Nome do cartão")
+                installments = st.number_input("Parcelas", min_value=1, value=1, step=1)
+    
+            description = st.text_area("Descrição (opcional)")
+    
+            submitted = st.form_submit_button("Salvar lançamento")
+    
+            if submitted:
+                amount = parse_brl_to_float(valor_str)
+    
+                if amount > 0 and category.strip():
+                    insert_transaction(
+                        user_id,   # <--- muito importante
+                        t_type,
+                        category,
+                        d,
+                        amount,
+                        payment_type,
+                        card_name,
+                        installments,
+                        description
+)
+                    st.success("Lançamento salvo com sucesso!")
+                else:
+                    st.error("Preencha categoria e valor maior que zero.")
                                
 
     if "user_id" not in st.session_state:
