@@ -281,6 +281,13 @@ def pagina_consulta_tabelas(get_connection):
     df_view["date"] = pd.to_datetime(df_view["date"]).dt.strftime("%d/%m/%Y")
     df_view["amount"] = df_view["amount"].apply(format_brl)
 
+    # 🔹 remove colunas que você não quer exibir
+    df_view = df_view.drop(
+        columns=["id", "card_name", "installments", "user_id"],
+        errors="ignore",   # se alguma não existir, não dá erro
+    )
+    
+    # 🔹 renomeia só o que sobra
     df_view = df_view.rename(
         columns={
             "type": "Tipo",
@@ -288,8 +295,6 @@ def pagina_consulta_tabelas(get_connection):
             "date": "Data",
             "amount": "Valor",
             "payment_type": "Forma",
-            "card_name": "Cartão",
-            "installments": "Parcelas",
             "description": "Descrição",
         }
     )
