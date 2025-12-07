@@ -7,6 +7,7 @@ import pandas as pd
 import hashlib
 
 from Consulta_Tabelas import pagina_consulta_tabelas
+from cartao import pagina_cartao
 
 
 st.set_page_config(
@@ -459,7 +460,7 @@ def main():
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
         "Navegação",
-        ["Dashboard", "Análises", "Consulta de Tabelas"],
+        ["Dashboard", "Análises", "Consulta de Tabelas", "Cartão de Crédito"],
         horizontal=False
     )
 
@@ -477,6 +478,8 @@ def main():
     if pagina == "Consulta de Tabelas":
         pagina_consulta_tabelas(get_connection)
         return
+    if pagina == "Cartão de crédito":
+        pagina_cartao(user_id)
 
    
     # --- SIDEBAR DO DASHBOARD ---
