@@ -90,7 +90,7 @@ def compute_card_summary(expanded: pd.DataFrame):
 def pagina_cartao(df: pd.DataFrame):
     """
     df vem do controle.py (já filtrado por user_id em load_data).
-    Aqui só filtramos as despesas de cartão e montamos o módulo.
+    Aqui só filtramos as despesas pagas com cartão e montamos o módulo.
     """
     st.markdown("### 💳 Módulo de Cartão de Crédito")
 
@@ -98,9 +98,10 @@ def pagina_cartao(df: pd.DataFrame):
         st.info("Ainda não há lançamentos para este usuário.")
         return
 
-    # Garante os tipos básicos
+    # Normaliza tipos básicos
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.date
+
     if "installments" not in df.columns:
         df["installments"] = 1
     if "card_name" not in df.columns:
@@ -111,9 +112,10 @@ def pagina_cartao(df: pd.DataFrame):
     df["installments"] = df["installments"].fillna(1).astype(int)
     df["amount"] = df["amount"].astype(float)
 
-    # Filtra só despesas de cartão de crédito
+    # 🔴 CORREÇÃO AQUI:
+    # Filtra só saídas pagas com cartão de crédito
     df_cartao = df[
-        (df["t_type"] == "Despesa") &
+        (df["type"] == "saida") &
         (df["payment_type"] == "Cartão de crédito")
     ].copy()
 
