@@ -482,7 +482,6 @@ def main():
     if pagina == "Cartão de Crédito":
         pagina_cartao(user_id)
         return
-
    
     # --- SIDEBAR DO DASHBOARD ---
     with st.sidebar:
