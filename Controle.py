@@ -479,7 +479,8 @@ def main():
         pagina_consulta_tabelas(get_connection)
         return
     if pagina == "Cartão de crédito":
-        pagina_cartao(user_id)
+        pagina_cartao(get_connection)
+        return
 
    
     # --- SIDEBAR DO DASHBOARD ---
