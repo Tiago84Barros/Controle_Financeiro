@@ -326,24 +326,3 @@ def pagina_cartao(user_id: int):
             st.write("Ainda não há parcelas concluídas no histórico.")
         else:
             st.dataframe(format_table(concluido), use_container_width=True, height=350)
-
-
----
-
-Como integrar com o teu app
-
-No teu controle.py principal (Streamlit), basta algo assim:
-
-from cartao import pagina_cartao
-
-# ...
-
-pagina = st.sidebar.radio("Navegação", ["Dashboard", "Análises", "Cartão"])
-
-if pagina == "Dashboard":
-    # página principal atual
-    dashboard(user_id)
-elif pagina == "Análises":
-    pagina_analises(user_id)
-elif pagina == "Cartão":
-    pagina_cartao(user_id)
