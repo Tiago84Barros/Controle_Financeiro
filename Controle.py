@@ -455,8 +455,8 @@ def main():
         render_analises(df)
         return
 
-     # 👉 Se for consulta de tabelas, chama o módulo e não renderiza o dashboard
-     if pagina == "Consulta de Tabelas":
+    # 👉 Se for consulta de tabelas, chama o módulo e não renderiza o dashboard
+    if pagina == "Consulta de Tabelas":
         pagina_consulta_tabelas(get_connection)
         return
 
