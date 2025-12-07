@@ -37,14 +37,15 @@ def init_db():
     conn = get_connection()
     conn.close()
 
-def insert_transaction(t_type, category, d, amount, payment_type, card_name, installments, description):
+def insert_transaction(user_id, t_type, category, d, amount, payment_type, card_name, installments, description):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """
         INSERT INTO transactions
-        (type, category, date, amount, payment_type, card_name, installments, description)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        (user_id, type, category, date, amount, payment_type, card_name, installments, description)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+
         """,
         (t_type, category, d, amount, payment_type, card_name, installments, description),
     )
@@ -52,13 +53,20 @@ def insert_transaction(t_type, category, d, amount, payment_type, card_name, ins
     conn.close()
 
 
-def load_data():
+def load_data(user_id):
     conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM transactions ORDER BY date DESC", conn)
+    df = pd.read_sql_query(
+        "SELECT * FROM transactions WHERE user_id = %s ORDER BY date DESC",
+        conn,
+        params=[str(user_id)],
+    )
     conn.close()
+    
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"]).dt.date
+    
     return df
+
 
 # ---------- Autenticação / Login ----------
 
@@ -442,7 +450,7 @@ def main():
         return
 
     # Carrega dados uma única vez (para Dashboard e Análises)
-    df = load_data()
+    df = load_data(user_id)
 
     # 👉 Se for análises, chama render_analises e sai
     if pagina == "Análises":
@@ -553,22 +561,23 @@ def main():
     
                 if amount > 0 and category.strip():
                     insert_transaction(
+                        user_id,   # <--- muito importante
                         t_type,
-                        category.strip(),
-                        d.isoformat(),
-                        float(amount),
+                        category,
+                        d,
+                        amount,
                         payment_type,
-                        card_name.strip() or None,
-                        int(installments),
-                        description.strip(),
-                    )
+                        card_name,
+                        installments,
+                        description
+)
                     st.success("Lançamento salvo com sucesso!")
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
 
  
     # --- DADOS ---
-    df = load_data()
+    df = load_data(user_id)
        
     resumo, df_cat, df_hist = compute_summary(df, ref_date)
 
