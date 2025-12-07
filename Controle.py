@@ -440,15 +440,6 @@ def main():
         horizontal=False
     )
 
-    # 👉 Se for consulta, chama o módulo novo e sai
-    if pagina == "Consulta de Tabelas":
-        pagina_consulta_tabelas(get_connection)
-        return
-
-    if "user_id" not in st.session_state:
-        st.error("Erro: usuário não autenticado. Volte para a tela de login.")
-        st.stop()
-
     user_id = st.session_state["user_id"]
 
     # Carrega dados uma única vez (para Dashboard e Análises)
