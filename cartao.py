@@ -21,7 +21,7 @@ def load_card_transactions(user_id: int) -> pd.DataFrame:
     """
     conn = get_connection()
     query = """
-        SELECT
+        SELECT *
         FROM transactions
         WHERE user_id = %s
           AND t_type = 'Despesa'
