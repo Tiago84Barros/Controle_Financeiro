@@ -478,8 +478,9 @@ def main():
     if pagina == "Consulta de Tabelas":
         pagina_consulta_tabelas(get_connection)
         return
-    if pagina == "Cartão de crédito":
-        pagina_cartao(get_connection)
+    # 👉 Se for cartão de crédito, chama o módulo e não renderiza o dashboard
+    if pagina == "Cartão de Crédito":
+        pagina_cartao(user_id)
         return
 
    
