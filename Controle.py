@@ -528,8 +528,8 @@ def main():
             "Outra"
         ]
     
-         # --- NOVO LANÇAMENTO ---
-        st.markdown("<hr>", unsafe_allow_html=True)   # apenas 1 traço antes do novo lançamento
+        # --- NOVO LANÇAMENTO ---
+        st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
         st.subheader("Novo lançamento")
     
         # Tipo
@@ -540,17 +540,32 @@ def main():
             key="tipo_lancamento",
         )
     
-        # 🔹 Espaçamento + divisor visual entre Tipo e Categoria
+        # Espaço + traço entre Tipo e Categoria
         st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-        st.markdown("<hr style='margin-top:0px; margin-bottom:12px;'>", unsafe_allow_html=True)
+        st.markdown(
+            "<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>",
+            unsafe_allow_html=True,
+        )
     
         # Categoria dinâmica
         if t_type == "entrada":
-            cat_choice = st.selectbox("Categoria", income_categories + ["Outra"], key="cat_entrada")
+            cat_choice = st.selectbox(
+                "Categoria",
+                income_categories + ["Outra"],
+                key="cat_entrada",
+            )
         elif t_type == "saida":
-            cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"], key="cat_saida")
-        else:
-            cat_choice = st.selectbox("Categoria", investment_categories, key="cat_inv")
+            cat_choice = st.selectbox(
+                "Categoria",
+                expense_categories + ["Outra"],
+                key="cat_saida",
+            )
+        else:  # investimento
+            cat_choice = st.selectbox(
+                "Categoria",
+                investment_categories,
+                key="cat_inv",
+            )
     
         if cat_choice == "Outra":
             category = st.text_input("Categoria personalizada", key="cat_personalizada")
@@ -565,14 +580,6 @@ def main():
             key="data_lanc",
         )
     
-        # Valor
-        valor_str = st.text_input(
-            "Valor (R$)",
-            value="",
-            placeholder="0,00",
-            key="valor_input",
-        )
-    
         # Forma de pagamento
         if t_type in ["entrada", "saida"]:
             payment_type = st.selectbox(
@@ -581,23 +588,45 @@ def main():
                 key="payment_type",
             )
         else:
-            payment_type = "Conta"
+            payment_type = "Conta"   # investimento sempre da conta
     
-        # Campos extras de cartão
+        # --- Valor + Parcelas lado a lado (quando for cartão de crédito) ---
         card_name = ""
         installments = 1
     
         if t_type == "saida" and payment_type == "Cartão de crédito":
+            col_valor, col_parc = st.columns([2, 1])
+    
+            with col_valor:
+                valor_str = st.text_input(
+                    "Valor (R$)",
+                    value="",
+                    placeholder="0,00",
+                    key="valor_input_cartao",
+                )
+    
+            with col_parc:
+                installments = st.number_input(
+                    "Parcelas",
+                    min_value=1,
+                    value=1,
+                    step=1,
+                    key="installments_input",
+                )
+    
+            # Nome do cartão logo abaixo
             card_name = st.text_input(
                 "Cartão",
                 key="card_name_input",
             )
-            installments = st.number_input(
-                "Parcelas",
-                min_value=1,
-                value=1,
-                step=1,
-                key="installments_input",
+    
+        else:
+            # Caso NÃO seja cartão de crédito, valor ocupa a linha toda
+            valor_str = st.text_input(
+                "Valor (R$)",
+                value="",
+                placeholder="0,00",
+                key="valor_input",
             )
     
         # Descrição
