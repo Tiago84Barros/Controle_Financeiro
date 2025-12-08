@@ -895,29 +895,30 @@ def main():
     st.markdown("### Últimos lançamentos")
 
     if not df.empty:
-        # pega os 20 últimos
-        # 🔹 Ordem personalizada para o tipo:
-        # entrada → investimento → saída
-        type_order = {
-            "entrada": 0,
-            "investimento": 1,
-            "saida": 2,
-        }
 
-        df_sorted = df.copy()
-        df_sorted["type_order"] = df_sorted["type"].map(type_order).fillna(99)
+        # 🔹 função auxiliar para pegar últimos N de um tipo
+        def get_last_n(df_base, tipo, n=10):
+            df_tipo = df_base[df_base["type"] == tipo].copy()
+            if df_tipo.empty:
+                return df_tipo
+            # ordena por data (mais recente primeiro) e pega N
+            return df_tipo.sort_values(by="date", ascending=False).head(n)
 
-        # 🔹 Ordenação final:
-        # 1) Tipo (ordem personalizada)
-        # 2) Categoria (A → Z)
-        # 3) Data (mais recente primeiro)
-        df_sorted = df_sorted.sort_values(
-            by=["type_order", "category", "date"],
-            ascending=[True, True, False],
-        ).head(20)
+        # 🔹 últimos 10 de cada tipo
+        df_ult_entrada = get_last_n(df, "entrada", 10)
+        df_ult_saida = get_last_n(df, "saida", 10)
+        df_ult_invest = get_last_n(df, "investimento", 10)
 
-        # remove coluna auxiliar
-        df_sorted = df_sorted.drop(columns=["type_order"])
+        # 🔹 concatena mantendo ordem: entrada → investimento → saída
+        df_sorted = pd.concat(
+            [df_ult_entrada, df_ult_invest, df_ult_saida],
+            ignore_index=True
+        )
+
+        if df_sorted.empty:
+            st.info("Ainda não há lançamentos suficientes para exibir nesta seção.")
+            return
+
 
         # Tabela para visualização (read-only), com data e valor formatados
         df_view = df_sorted.copy()
