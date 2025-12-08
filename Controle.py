@@ -1129,7 +1129,7 @@ def render_analises(df):
     #  - saídas cuja categoria é "Pagamento de Cartão"
     df_cc = df_temp[
         (df_temp["type"] == "saida") & (
-            (df_temp["payment_type"] == "Cartão de crédito") |
+            (df_temp["payment_type"] == "Conta") |
             (df_temp["category_norm"] == "pagamento de cartão")
         )
     ].copy()
