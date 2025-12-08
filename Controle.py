@@ -335,47 +335,6 @@ def parse_brl_to_float(valor_str: str) -> float:
         return float(s)
     except ValueError:
         return 0.0
-# ----------------------------------
-
-def init_valor_state():
-    """Inicializa o campo de valor no estado da sessão."""
-    if "valor_input" not in st.session_state:
-        st.session_state["valor_input"] = "0,00"
-
-
-def handle_valor_change():
-    """
-    Lê o que o usuário digitou, mantém só dígitos
-    e formata como moeda brasileira, deslocando 2 casas.
-    
-    Exemplo de fluxo:
-    ""    -> 0,00
-    "1"   -> 0,01
-    "12"  -> 0,12
-    "120" -> 1,20
-    "1200"-> 12,00
-    "12003"-> 120,03
-    """
-    raw = st.session_state["valor_input"]
-
-    # pega só os dígitos que o usuário digitou
-    digits = "".join(ch for ch in raw if ch.isdigit())
-
-    if digits == "":
-        digits = "0"
-
-    # opcional: limita quantidade de dígitos pra não estourar
-    if len(digits) > 15:
-        digits = digits[-15:]
-
-    valor_int = int(digits)  # em centavos
-    valor_float = valor_int / 100  # converte para reais
-
-    # formata no padrão brasileiro
-    formatted = f"{valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    st.session_state["valor_input"] = formatted
-
-
 
 # ---------- Estilo visual ----------
 
@@ -569,28 +528,33 @@ def main():
             "Outra"
         ]
     
-        st.header("Novo lançamento")
-
-        # 🔹 Tipo agora tem 3 opções
-        t_type = st.radio("Tipo", ["entrada", "saida", "investimento"], horizontal=True)
+        # --- NOVO LANÇAMENTO (form visual, sem st.form) ---
+        st.markdown("---")
+        st.subheader("Novo lançamento")
     
-        with st.form("novo_lancamento", clear_on_submit=True):
+        with st.container():
+            # Tipo de lançamento
+            t_type = st.radio(
+                "Tipo",
+                ["entrada", "saida", "investimento"],
+                horizontal=True,
+                key="tipo_lancamento",
+            )
     
-            # 🔹 Seleção dinâmica de categorias
+            # Categoria dinâmica
             if t_type == "entrada":
-                cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
+                cat_choice = st.selectbox("Categoria", income_categories + ["Outra"], key="cat_entrada")
             elif t_type == "saida":
-                cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
+                cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"], key="cat_saida")
             else:  # investimento
-                cat_choice = st.selectbox("Categoria", investment_categories)
+                cat_choice = st.selectbox("Categoria", investment_categories, key="cat_inv")
     
-            # Se escolher "Outra", mostra campo manual
             if cat_choice == "Outra":
-                category = st.text_input("Categoria personalizada")
+                category = st.text_input("Categoria personalizada", key="cat_personalizada")
             else:
                 category = cat_choice
     
-            # 🔹 Data no formato BR
+            # Data
             d = st.date_input(
                 "Data",
                 value=today,
@@ -598,10 +562,15 @@ def main():
                 key="data_lanc",
             )
     
-            # 🔹 Campo Valor (como string BR)
-            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
+            # Valor
+            valor_str = st.text_input(
+                "Valor (R$)",
+                value="",
+                placeholder="0,00",
+                key="valor_input",
+            )
     
-            # 🔹 Forma de pagamento (só aparece para entrada/saída)
+            # Forma de pagamento
             if t_type in ["entrada", "saida"]:
                 payment_type = st.selectbox(
                     "Forma de pagamento",
@@ -611,30 +580,31 @@ def main():
             else:
                 payment_type = "Conta"   # investimento sai sempre da conta
     
-            # valores padrão
+            # Campos específicos de cartão (aparecem só para SAÍDA + Cartão de crédito)
             card_name = ""
             installments = 1
     
-            # 🔴 CAMPOS EXTRAS APENAS QUANDO FOR CARTÃO DE CRÉDITO
-            if payment_type == "Cartão de crédito":
+            if t_type == "saida" and payment_type == "Cartão de crédito":
                 card_name = st.text_input(
-                    "Nome do cartão",
-                    key="card_name",
+                    "Cartão",
+                    key="card_name_input",
                 )
                 installments = st.number_input(
                     "Parcelas",
                     min_value=1,
                     value=1,
                     step=1,
-                    key="card_installments",
-                    help="Número de parcelas da compra no cartão",
+                    key="installments_input",
                 )
     
-            description = st.text_area("Descrição (opcional)")
+            # Descrição
+            description = st.text_area(
+                "Descrição (opcional)",
+                key="descricao_input",
+            )
     
-            submitted = st.form_submit_button("Salvar lançamento")
-    
-            if submitted:
+            # Botão de salvar (fora de st.form, mas visualmente funciona como formulário)
+            if st.button("Salvar lançamento", use_container_width=True):
                 amount = parse_brl_to_float(valor_str)
     
                 if amount > 0 and category.strip():
@@ -652,6 +622,7 @@ def main():
                     st.success("Lançamento salvo com sucesso!")
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
+    
 
                                
 
