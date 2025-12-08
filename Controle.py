@@ -491,7 +491,7 @@ def main():
             value=today,
             format="DD/MM/YYYY"
         )
-        st.markdown("---")
+       # st.markdown("---")
     
         # Categorias pré-definidas
         income_categories = [
