@@ -543,6 +543,38 @@ def main():
         # --- NOVO LANÇAMENTO ---
         st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
         st.subheader("Novo lançamento")
+
+        # -------------------------------------------
+        # Inicialização dos campos (não altera layout)
+        # -------------------------------------------
+        if "novo_lanc_inicializado" not in st.session_state:
+            st.session_state["novo_lanc_inicializado"] = True
+
+            st.session_state["tipo_lancamento"] = "entrada"
+
+            # Categorias
+            if income_categories:
+                st.session_state["cat_entrada"] = income_categories[0]
+            else:
+                st.session_state["cat_entrada"] = ""
+            if expense_categories:
+                st.session_state["cat_saida"] = expense_categories[0]
+            else:
+                st.session_state["cat_saida"] = ""
+            if investment_categories:
+                st.session_state["cat_inv"] = investment_categories[0]
+            else:
+                st.session_state["cat_inv"] = ""
+            st.session_state["cat_personalizada"] = ""
+
+            # Data, valor, forma de pagamento, cartão, parcelas, descrição
+            st.session_state["data_lanc"] = today
+            st.session_state["payment_type"] = "Conta"
+            st.session_state["valor_input"] = ""
+            st.session_state["valor_input_cartao"] = ""
+            st.session_state["installments_input"] = 1
+            st.session_state["card_name_input"] = ""
+            st.session_state["descricao_input"] = ""
     
         # Tipo
         t_type = st.radio(
@@ -665,7 +697,39 @@ def main():
                     installments,
                     description,
                 )
-                st.success("Lançamento salvo com sucesso!")
+                st.success("Lançamento salvo com sucesso!") 
+                
+                # -------------------------------
+                # LIMPAR CAMPOS APÓS O SALVAMENTO
+                # -------------------------------
+                st.session_state["tipo_lancamento"] = "entrada"
+
+                if income_categories:
+                    st.session_state["cat_entrada"] = income_categories[0]
+                else:
+                    st.session_state["cat_entrada"] = ""
+                if expense_categories:
+                    st.session_state["cat_saida"] = expense_categories[0]
+                else:
+                    st.session_state["cat_saida"] = ""
+                if investment_categories:
+                    st.session_state["cat_inv"] = investment_categories[0]
+                else:
+                    st.session_state["cat_inv"] = ""
+                st.session_state["cat_personalizada"] = ""
+
+                st.session_state["data_lanc"] = today
+                st.session_state["payment_type"] = "Conta"
+                st.session_state["valor_input"] = ""
+                st.session_state["valor_input_cartao"] = ""
+                st.session_state["installments_input"] = 1
+                st.session_state["card_name_input"] = ""
+                st.session_state["descricao_input"] = ""
+
+                # Recarrega a página com tudo limpo
+                st.rerun()  # se der erro, use st.experimental_rerun()
+
+            
             else:
                 st.error("Preencha categoria e valor maior que zero.")
 
