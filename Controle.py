@@ -470,7 +470,7 @@ def main():
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
         "Navegação",
-        ["Dashboard", "Análises", "Consulta de Tabelas", "Cartão de Crédito"],
+        ["Dashboard", "Análises", "Tabelas", "Cartão de Crédito"],
         horizontal=False
     )
 
@@ -485,7 +485,7 @@ def main():
         return
 
     # 👉 Se for consulta de tabelas, chama o módulo e não renderiza o dashboard
-    if pagina == "Consulta de Tabelas":
+    if pagina == "Tabelas":
         pagina_consulta_tabelas(get_connection)
         return
     # 👉 Se for cartão de crédito, chama o módulo e não renderiza o dashboard
