@@ -601,21 +601,30 @@ def main():
             # 🔹 Campo Valor (como string BR)
             valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
     
-            # 🔹 Forma de pagamento (só aparece para saída e entrada)
+            # 🔹 Forma de pagamento
             if t_type in ["entrada", "saida"]:
                 payment_type = st.selectbox(
                     "Forma de pagamento",
                     ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
                 )
             else:
-                payment_type = "Conta"   # investimento sai sempre da conta
+                # investimento sempre sai da conta
+                payment_type = "Conta"
     
+            # valores padrão
             card_name = ""
             installments = 1
     
-            if payment_type == "Cartão de crédito":
+            # 🔴 CAMPOS EXTRAS APENAS PARA SAÍDA + CARTÃO DE CRÉDITO
+            if t_type == "saida" and payment_type == "Cartão de crédito":
                 card_name = st.text_input("Nome do cartão")
-                installments = st.number_input("Parcelas", min_value=1, value=1, step=1)
+                installments = st.number_input(
+                    "Parcelas",
+                    min_value=1,
+                    value=1,
+                    step=1,
+                    help="Número de parcelas da compra no cartão"
+                )
     
             description = st.text_area("Descrição (opcional)")
     
@@ -626,7 +635,7 @@ def main():
     
                 if amount > 0 and category.strip():
                     insert_transaction(
-                        user_id,   # <--- muito importante
+                        user_id,
                         t_type,
                         category,
                         d,
@@ -634,8 +643,8 @@ def main():
                         payment_type,
                         card_name,
                         installments,
-                        description
-)
+                        description,
+                    )
                     st.success("Lançamento salvo com sucesso!")
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
