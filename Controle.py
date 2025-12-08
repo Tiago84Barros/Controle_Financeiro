@@ -556,7 +556,7 @@ def main():
             st.session_state["card_name"] = ""
             st.session_state["parcelas"] = 1
             st.session_state["descricao"] = ""
-    
+
         # Tipo do lançamento (usa session_state)
         t_type = st.radio(
             "Tipo",
@@ -564,7 +564,7 @@ def main():
             horizontal=True,
             key="tipo_lancamento",
         )
-    
+
         # Seleção de categorias, dependente do tipo
         if t_type == "entrada":
             cat_choice = st.selectbox(
@@ -584,8 +584,8 @@ def main():
                 investment_categories,
                 key="categoria_padrao"
             )
-    
-        # Se escolher "Outra", habilita campo personalizado
+
+        # Se escolher "Outra", habilita campo personalizada
         if cat_choice == "Outra":
             category = st.text_input(
                 "Categoria personalizada",
@@ -594,7 +594,7 @@ def main():
         else:
             category = cat_choice
             st.session_state["categoria_personalizada"] = ""
-    
+
         # Data
         d = st.date_input(
             "Data",
@@ -602,7 +602,7 @@ def main():
             format="DD/MM/YYYY",
             key="data_lanc"
         )
-    
+
         # Valor em formato BR
         valor_str = st.text_input(
             "Valor (R$)",
@@ -610,7 +610,7 @@ def main():
             placeholder="0,00",
             key="valor_lanc"
         )
-    
+
         # Forma de pagamento
         if t_type in ["entrada", "saida"]:
             payment_type = st.selectbox(
@@ -621,10 +621,10 @@ def main():
         else:
             payment_type = "Conta"
             st.session_state["payment_type"] = "Conta"
-    
+
         card_name = ""
         installments = 1
-    
+
         if payment_type == "Cartão de crédito":
             card_name = st.text_input(
                 "Nome do cartão",
@@ -640,17 +640,31 @@ def main():
         else:
             st.session_state["card_name"] = ""
             st.session_state["parcelas"] = 1
-    
+
         description = st.text_area(
             "Descrição (opcional)",
             key="descricao"
         )
-            
+
         # Botão de salvar
         if st.button("Salvar lançamento", use_container_width=True):
+
+            # >>> lê tudo do session_state (fonte única da verdade)
+            t_type = st.session_state["tipo_lancamento"]
+            category = (
+                st.session_state["categoria_personalizada"]
+                or st.session_state["categoria_padrao"]
+            )
+            d = st.session_state["data_lanc"]
+            valor_str = st.session_state["valor_lanc"]
+            payment_type = st.session_state["payment_type"]
+            card_name = st.session_state["card_name"]
+            installments = st.session_state["parcelas"]
+            description = st.session_state["descricao"]
+
             amount = parse_brl_to_float(valor_str)
-    
-            if amount > 0 and category.strip():
+
+            if amount > 0 and category and category.strip():
                 insert_transaction(
                     user_id,
                     t_type,
@@ -663,9 +677,24 @@ def main():
                     description,
                 )
                 st.success("Lançamento salvo com sucesso!")
+
+                # ---------- LIMPA TODOS OS CAMPOS ----------
+                st.session_state["tipo_lancamento"] = "entrada"
+                st.session_state["categoria_padrao"] = ""
+                st.session_state["categoria_personalizada"] = ""
+                st.session_state["data_lanc"] = today
+                st.session_state["valor_lanc"] = ""
+                st.session_state["payment_type"] = "Conta"
+                st.session_state["card_name"] = ""
+                st.session_state["parcelas"] = 1
+                st.session_state["descricao"] = ""
+
+                # Recarrega a página com tudo limpo
+                st.rerun()  # ou st.experimental_rerun() se sua versão for mais antiga
+
             else:
                 st.error("Preencha categoria e valor maior que zero.")
-                     
+
 
     if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
