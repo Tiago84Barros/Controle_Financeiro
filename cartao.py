@@ -32,7 +32,7 @@ def expand_installments(df: pd.DataFrame, due_day: int) -> pd.DataFrame:
             first_due = (purchase_date + relativedelta(months=1)).replace(day=due_day)
 
         for k in range(1, n_parc + 1):
-            due_date = first_due + relativedelta(months=k-1)
+            due_date = first_due + relativedelta(months=k - 1)
 
             rows.append({
                 "category": row["category"],
@@ -67,8 +67,8 @@ def compute_card_summary(expanded: pd.DataFrame):
     current_year = today.year
     current_month = today.month
 
-    mask_mes_atual = (
-        expanded["due_date"].apply(lambda d: d.year == current_year and d.month == current_month)
+    mask_mes_atual = expanded["due_date"].apply(
+        lambda d: d.year == current_year and d.month == current_month
     )
     valor_fatura_mes = expanded.loc[mask_mes_atual, "installment_value"].sum()
 
@@ -81,6 +81,102 @@ def compute_card_summary(expanded: pd.DataFrame):
     divida_ano_a_pagar = expanded.loc[mask_a_pagar, "installment_value"].sum()
 
     return valor_fatura_mes, divida_ano_a_pagar, valor_pago_ano
+
+
+def consolidar_dividas_ativas(expanded: pd.DataFrame) -> pd.DataFrame:
+    """
+    Consolida parcelas em UMA LINHA por compra, informando:
+      - total da compra
+      - parcelas pagas
+      - parcelas restantes
+      - próximo vencimento
+      - saldo a pagar
+
+    Considera 'ativas' as compras com pelo menos UMA parcela com due_date >= hoje.
+    """
+    if expanded.empty:
+        return pd.DataFrame()
+
+    today = date.today()
+
+    keys = [
+        "card_name",
+        "category",
+        "purchase_date",
+        "description",
+        "total_installments",
+        "installment_value",
+    ]
+    rows = []
+
+    for _, g in expanded.groupby(keys, dropna=False):
+        total_installments = int(g["total_installments"].iloc[0])
+        parcela_value = float(g["installment_value"].iloc[0])
+
+        dues = g.sort_values("installment_no")["due_date"].tolist()
+
+        paid = sum(1 for d in dues if d < today)
+        remaining = total_installments - paid
+
+        if remaining <= 0:
+            # já quitada, não é ativa
+            continue
+
+        next_due = min(d for d in dues if d >= today)
+
+        total_value = total_installments * parcela_value
+        remaining_value = remaining * parcela_value
+
+        rows.append({
+            "card_name": g["card_name"].iloc[0],
+            "category": g["category"].iloc[0],
+            "purchase_date": g["purchase_date"].iloc[0],
+            "total_value": total_value,
+            "installments_paid": paid,
+            "installments_remaining": remaining,
+            "next_due": next_due,
+            "remaining_value": remaining_value,
+            "description": g["description"].iloc[0],
+        })
+
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+
+    out["purchase_date"] = out["purchase_date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+    out["next_due"] = out["next_due"].apply(lambda d: d.strftime("%d/%m/%Y"))
+
+    out["total_value"] = out["total_value"].map(
+        lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
+    out["remaining_value"] = out["remaining_value"].map(
+        lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
+
+    out = out.rename(columns={
+        "card_name": "Cartão",
+        "category": "Categoria",
+        "purchase_date": "Data da compra",
+        "total_value": "Total da compra",
+        "installments_paid": "Parcelas pagas",
+        "installments_remaining": "Parcelas restantes",
+        "next_due": "Próximo vencimento",
+        "remaining_value": "Saldo a pagar",
+        "description": "Descrição",
+    })
+
+    cols = [
+        "Cartão",
+        "Categoria",
+        "Data da compra",
+        "Total da compra",
+        "Parcelas pagas",
+        "Parcelas restantes",
+        "Próximo vencimento",
+        "Saldo a pagar",
+        "Descrição",
+    ]
+    return out[cols]
 
 
 # -------------------------------------------------------------------
@@ -98,7 +194,6 @@ def pagina_cartao(df: pd.DataFrame):
         st.info("Ainda não há lançamentos para este usuário.")
         return
 
-    # Normaliza tipos básicos
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"]).dt.date
 
@@ -112,8 +207,7 @@ def pagina_cartao(df: pd.DataFrame):
     df["installments"] = df["installments"].fillna(1).astype(int)
     df["amount"] = df["amount"].astype(float)
 
-    # 🔴 CORREÇÃO AQUI:
-    # Filtra só saídas pagas com cartão de crédito
+    # Apenas saídas pagas com cartão de crédito
     df_cartao = df[
         (df["type"] == "saida") &
         (df["payment_type"] == "Cartão de crédito")
@@ -130,7 +224,7 @@ def pagina_cartao(df: pd.DataFrame):
         min_value=1,
         max_value=28,
         value=5,
-        help="Assumimos que todas as faturas vencem neste dia do mês."
+        help="Assumimos que todas as faturas vencem neste dia do mês.",
     )
 
     expanded = expand_installments(df_cartao, due_day)
@@ -223,9 +317,18 @@ def pagina_cartao(df: pd.DataFrame):
             )
 
             mensal["NomeMes"] = mensal["Mês"].map({
-                1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr",
-                5: "Mai", 6: "Jun", 7: "Jul", 8: "Ago",
-                9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+                1: "Jan",
+                2: "Fev",
+                3: "Mar",
+                4: "Abr",
+                5: "Mai",
+                6: "Jun",
+                7: "Jul",
+                8: "Ago",
+                9: "Set",
+                10: "Out",
+                11: "Nov",
+                12: "Dez",
             })
 
             chart_hist = (
@@ -249,7 +352,7 @@ def pagina_cartao(df: pd.DataFrame):
     st.markdown("---")
 
     # -------------------------------------------------------------------
-    # TABELAS: DÍVIDAS ATIVAS x CONCLUÍDAS
+    # TABELAS: DÍVIDAS ATIVAS x CONCLUÍDAS + FILTROS
     # -------------------------------------------------------------------
     st.subheader("Dívidas no cartão")
 
@@ -257,9 +360,75 @@ def pagina_cartao(df: pd.DataFrame):
         st.info("Não há dívidas de cartão registradas.")
         return
 
+    base = expanded.copy()
+
+    # opções de cartão, categoria e ano (da data da compra)
+    cartoes = sorted(base["card_name"].dropna().unique().tolist())
+    categorias = sorted(base["category"].dropna().unique().tolist())
+    anos = sorted({d.year for d in base["purchase_date"]})
+
+    with st.form("filtros_dividas_cartao"):
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+
+        with col_f1:
+            card_sel = st.selectbox(
+                "Cartão",
+                ["Todos"] + cartoes if cartoes else ["Todos"],
+            )
+        with col_f2:
+            cat_sel = st.selectbox(
+                "Categoria",
+                ["Todas"] + categorias if categorias else ["Todas"],
+            )
+        with col_f3:
+            ano_sel = st.selectbox(
+                "Ano da compra",
+                ["Todos"] + anos if anos else ["Todos"],
+            )
+        with col_f4:
+            status_sel = st.selectbox(
+                "Status",
+                ["Todos", "Ativas", "Concluídas"],
+            )
+
+        texto_busca = st.text_input(
+            "Buscar na descrição",
+            value="",
+            placeholder="Ex: mercado, passagem, viagem...",
+        )
+
+        aplicar = st.form_submit_button("Aplicar filtros")
+
+    df_filt = base
+
+    if card_sel != "Todos":
+        df_filt = df_filt[df_filt["card_name"] == card_sel]
+
+    if cat_sel != "Todas":
+        df_filt = df_filt[df_filt["category"] == cat_sel]
+
+    if ano_sel != "Todos":
+        df_filt = df_filt[df_filt["purchase_date"].apply(lambda d: d.year == int(ano_sel))]
+
+    if texto_busca:
+        df_filt = df_filt[
+            df_filt["description"].fillna("").str.contains(texto_busca, case=False, na=False)
+        ]
+
     today = date.today()
-    ativos = expanded[expanded["due_date"] >= today].copy()
-    concluido = expanded[expanded["due_date"] < today].copy()
+
+    concluido = df_filt[df_filt["due_date"] < today].copy()
+    df_ativas = consolidar_dividas_ativas(df_filt)
+
+    if status_sel == "Ativas":
+        mostrar_ativas = True
+        mostrar_concluidas = False
+    elif status_sel == "Concluídas":
+        mostrar_ativas = False
+        mostrar_concluidas = True
+    else:
+        mostrar_ativas = True
+        mostrar_concluidas = True
 
     def format_table(df_tab: pd.DataFrame) -> pd.DataFrame:
         if df_tab.empty:
@@ -284,23 +453,33 @@ def pagina_cartao(df: pd.DataFrame):
             inplace=True,
         )
         cols = [
-            "Cartão", "Categoria", "Data da compra", "Vencimento",
-            "Parcela", "Total parcelas", "Valor parcela", "Descrição",
+            "Cartão",
+            "Categoria",
+            "Data da compra",
+            "Vencimento",
+            "Parcela",
+            "Total parcelas",
+            "Valor parcela",
+            "Descrição",
         ]
         return out[cols]
 
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("#### Dívidas ativas (parcelas futuras)")
-        if ativos.empty:
-            st.write("✔️ Nenhuma parcela futura em aberto.")
+        st.markdown("#### Dívidas ativas (consolidadas)")
+        if not mostrar_ativas:
+            st.write("Filtrando apenas dívidas concluídas.")
+        elif df_ativas.empty:
+            st.write("✔️ Nenhuma dívida ativa encontrada com os filtros selecionados.")
         else:
-            st.dataframe(format_table(ativos), use_container_width=True, height=350)
+            st.dataframe(df_ativas, use_container_width=True, height=350)
 
     with col_b:
         st.markdown("#### Dívidas concluídas (parcelas já pagas)")
-        if concluido.empty:
-            st.write("Ainda não há parcelas concluídas no histórico.")
+        if not mostrar_concluidas:
+            st.write("Filtrando apenas dívidas ativas.")
+        elif concluido.empty:
+            st.write("Nenhuma parcela concluída encontrada com os filtros selecionados.")
         else:
             st.dataframe(format_table(concluido), use_container_width=True, height=350)
