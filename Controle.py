@@ -1183,7 +1183,8 @@ def render_analises(df):
                 alt.Chart(df_cc_mes)
                 .mark_bar()
                 .encode(
-                    x=alt.X("mes_label:N", title="Mês"),
+                    x=alt.X("mes_label:N", title="Mês",
+                           sort=["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]),
                     y=alt.Y("amount:Q", title="Total relacionado a cartão (R$)"),
                     tooltip=[
                         alt.Tooltip("mes_label:N", title="Mês"),
