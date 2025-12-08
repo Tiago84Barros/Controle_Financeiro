@@ -515,6 +515,7 @@ def main():
     
         expense_categories = [
             "Mercado",
+            "Compras",
             "Condomínio",
             "Luz",
             "Internet",
