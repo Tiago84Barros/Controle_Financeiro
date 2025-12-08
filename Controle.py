@@ -264,18 +264,29 @@ def compute_summary(df, ref_date):
     mask_month = (df["date"] >= first_day) & (df["date"] <= last_day)
     df_month = df[mask_month].copy()
 
+    # ✅ Fluxo de caixa considera APENAS o que mexe na conta
+    #    - entradas: todas
+    #    - saídas: exceto cartão de crédito (gasto futuro)
+    #    - investimentos: todos (saem da conta)
     total_entrada = df_month.loc[df_month["type"] == "entrada", "amount"].sum()
-    total_saida = df_month.loc[df_month["type"] == "saida", "amount"].sum()
+
+    # saídas que realmente saem da conta (não cartão)
+    mask_saidas_caixa = (df_month["type"] == "saida") & (
+        df_month["payment_type"] != "Cartão de crédito"
+    )
+    total_saida = df_month.loc[mask_saidas_caixa, "amount"].sum()
+
     total_investimento = df_month.loc[df_month["type"] == "investimento", "amount"].sum()
 
-    # 🔹 saldo líquido: entradas - saídas - investimentos
+    # 🔹 saldo líquido: entradas - saídas (que afetam caixa) - investimentos
     saldo = total_entrada - total_saida - total_investimento
 
-    # 🔹 renda comprometida: saídas + investimentos
+    # 🔹 renda comprometida: saídas (que afetam caixa) + investimentos
     comprometido = total_saida + total_investimento
     perc_comprometido = (comprometido / total_entrada * 100) if total_entrada > 0 else 0
 
-    # Despesas por categoria no mês (só saídas, como antes)
+    # Despesas por categoria no mês (mantém como antes: TODAS as saídas,
+    # incluindo cartão, para você ver o "peso" real das categorias)
     df_cat = (
         df_month[df_month["type"] == "saida"]
         .groupby("category")["amount"]
