@@ -31,9 +31,6 @@ def update_transaction_fields(
     - categoria
     - card_name
     - descrição
-
-    Os valores e número de parcelas continuam sendo definidos
-    na tela de lançamentos (dashboard).
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -385,7 +382,7 @@ def pagina_cartao(df: pd.DataFrame):
     st.markdown("---")
 
     # -------------------------------------------------------------------
-    # VISÃO CONSOLIDADA POR COMPRA + FILTROS + EDIÇÃO
+    # VISÃO CONSOLIDADA POR COMPRA + FILTROS + EDIÇÃO SOB DEMANDA
     # -------------------------------------------------------------------
     st.subheader("Dívidas no cartão")
 
@@ -470,13 +467,13 @@ def pagina_cartao(df: pd.DataFrame):
         mostrar_ativas = True
         mostrar_concluidas = True
 
-    # -------------------------------------------------------------------
-    # TABELA EDITÁVEL: DÍVIDAS ATIVAS
-    # -------------------------------------------------------------------
     col_a, col_b = st.columns(2)
 
+    # -------------------------------------------------------------------
+    # TABELA: DÍVIDAS ATIVAS (visualização + edição sob demanda)
+    # -------------------------------------------------------------------
     with col_a:
-        st.markdown("#### Dívidas ativas (consolidadas e editáveis)")
+        st.markdown("#### Dívidas ativas (consolidadas)")
 
         if not mostrar_ativas:
             st.write("Filtrando apenas dívidas concluídas.")
@@ -504,7 +501,6 @@ def pagina_cartao(df: pd.DataFrame):
                 }
             )
 
-            # Mantém só colunas relevantes
             df_view_ativas = df_view_ativas[
                 [
                     "ID",
@@ -520,54 +516,61 @@ def pagina_cartao(df: pd.DataFrame):
                 ]
             ]
 
-            edited_ativas = st.data_editor(
-                df_view_ativas,
-                num_rows="fixed",
-                key="editor_dividas_ativas",
-                column_config={
-                    "ID": st.column_config.NumberColumn("ID", disabled=True),
-                    "Total da compra": st.column_config.TextColumn(disabled=True),
-                    "Parcelas pagas": st.column_config.NumberColumn(disabled=True),
-                    "Parcelas restantes": st.column_config.NumberColumn(disabled=True),
-                    "Próximo vencimento": st.column_config.TextColumn(disabled=True),
-                    "Saldo a pagar": st.column_config.TextColumn(disabled=True),
-                    # "Cartão", "Categoria" e "Descrição" ficam editáveis
-                },
+            habilitar_edicao_ativas = st.checkbox(
+                "Habilitar edição das dívidas ativas",
+                key="chk_editar_ativas",
             )
 
-            if st.button("Salvar alterações (ativas)"):
-                # Junta com original para detectar mudanças apenas em Cartão, Categoria, Descrição
-                base = df_view_ativas.set_index("ID")
-                novo = edited_ativas.set_index("ID")
+            if not habilitar_edicao_ativas:
+                st.dataframe(df_view_ativas, use_container_width=True, height=350)
+            else:
+                edited_ativas = st.data_editor(
+                    df_view_ativas,
+                    num_rows="fixed",
+                    key="editor_dividas_ativas",
+                    column_config={
+                        "ID": st.column_config.NumberColumn("ID", disabled=True),
+                        "Total da compra": st.column_config.TextColumn(disabled=True),
+                        "Parcelas pagas": st.column_config.NumberColumn(disabled=True),
+                        "Parcelas restantes": st.column_config.NumberColumn(disabled=True),
+                        "Próximo vencimento": st.column_config.TextColumn(disabled=True),
+                        "Saldo a pagar": st.column_config.TextColumn(disabled=True),
+                        # "Cartão", "Categoria" e "Descrição" ficam editáveis
+                    },
+                )
 
-                alteracoes = 0
-                for idx in novo.index:
-                    row_old = base.loc[idx]
-                    row_new = novo.loc[idx]
+                if st.button("Salvar alterações (ativas)"):
+                    base = df_view_ativas.set_index("ID")
+                    novo = edited_ativas.set_index("ID")
 
-                    if (
-                        row_old["Cartão"] != row_new["Cartão"]
-                        or row_old["Categoria"] != row_new["Categoria"]
-                        or row_old["Descrição"] != row_new["Descrição"]
-                    ):
-                        update_transaction_fields(
-                            transaction_id=int(idx),
-                            new_category=row_new["Categoria"],
-                            new_card_name=row_new["Cartão"],
-                            new_description=row_new["Descrição"],
-                        )
-                        alteracoes += 1
+                    alteracoes = 0
+                    for idx in novo.index:
+                        row_old = base.loc[idx]
+                        row_new = novo.loc[idx]
 
-                if alteracoes > 0:
-                    st.success(f"{alteracoes} compra(s) ativa(s) atualizada(s) com sucesso.")
-                else:
-                    st.info("Nenhuma alteração detectada nas dívidas ativas.")
+                        if (
+                            row_old["Cartão"] != row_new["Cartão"]
+                            or row_old["Categoria"] != row_new["Categoria"]
+                            or row_old["Descrição"] != row_new["Descrição"]
+                        ):
+                            update_transaction_fields(
+                                transaction_id=int(idx),
+                                new_category=row_new["Categoria"],
+                                new_card_name=row_new["Cartão"],
+                                new_description=row_new["Descrição"],
+                            )
+                            alteracoes += 1
+
+                    if alteracoes > 0:
+                        st.success(f"{alteracoes} compra(s) ativa(s) atualizada(s) com sucesso.")
+                    else:
+                        st.info("Nenhuma alteração detectada nas dívidas ativas.")
 
     # -------------------------------------------------------------------
-    # TABELA EDITÁVEL: DÍVIDAS CONCLUÍDAS (100% QUITADAS)
+    # TABELA: DÍVIDAS CONCLUÍDAS (visualização + edição sob demanda)
     # -------------------------------------------------------------------
     with col_b:
-        st.markdown("#### Dívidas concluídas (compras 100% quitadas e editáveis)")
+        st.markdown("#### Dívidas concluídas (compras 100% quitadas)")
 
         if not mostrar_concluidas:
             st.write("Filtrando apenas dívidas ativas.")
@@ -602,42 +605,50 @@ def pagina_cartao(df: pd.DataFrame):
                 ]
             ]
 
-            edited_conc = st.data_editor(
-                df_view_conc,
-                num_rows="fixed",
-                key="editor_dividas_concluidas",
-                column_config={
-                    "ID": st.column_config.NumberColumn("ID", disabled=True),
-                    "Total da compra": st.column_config.TextColumn(disabled=True),
-                    "Parcelas pagas": st.column_config.NumberColumn(disabled=True),
-                    "Data da compra": st.column_config.TextColumn(disabled=True),
-                    # "Cartão", "Categoria" e "Descrição" editáveis
-                },
+            habilitar_edicao_concluidas = st.checkbox(
+                "Habilitar edição das dívidas concluídas",
+                key="chk_editar_concluidas",
             )
 
-            if st.button("Salvar alterações (concluídas)"):
-                base_c = df_view_conc.set_index("ID")
-                novo_c = edited_conc.set_index("ID")
+            if not habilitar_edicao_concluidas:
+                st.dataframe(df_view_conc, use_container_width=True, height=350)
+            else:
+                edited_conc = st.data_editor(
+                    df_view_conc,
+                    num_rows="fixed",
+                    key="editor_dividas_concluidas",
+                    column_config={
+                        "ID": st.column_config.NumberColumn("ID", disabled=True),
+                        "Total da compra": st.column_config.TextColumn(disabled=True),
+                        "Parcelas pagas": st.column_config.NumberColumn(disabled=True),
+                        "Data da compra": st.column_config.TextColumn(disabled=True),
+                        # "Cartão", "Categoria" e "Descrição" editáveis
+                    },
+                )
 
-                alteracoes_c = 0
-                for idx in novo_c.index:
-                    row_old = base_c.loc[idx]
-                    row_new = novo_c.loc[idx]
+                if st.button("Salvar alterações (concluídas)"):
+                    base_c = df_view_conc.set_index("ID")
+                    novo_c = edited_conc.set_index("ID")
 
-                    if (
-                        row_old["Cartão"] != row_new["Cartão"]
-                        or row_old["Categoria"] != row_new["Categoria"]
-                        or row_old["Descrição"] != row_new["Descrição"]
-                    ):
-                        update_transaction_fields(
-                            transaction_id=int(idx),
-                            new_category=row_new["Categoria"],
-                            new_card_name=row_new["Cartão"],
-                            new_description=row_new["Descrição"],
-                        )
-                        alteracoes_c += 1
+                    alteracoes_c = 0
+                    for idx in novo_c.index:
+                        row_old = base_c.loc[idx]
+                        row_new = novo_c.loc[idx]
 
-                if alteracoes_c > 0:
-                    st.success(f"{alteracoes_c} compra(s) concluída(s) atualizada(s) com sucesso.")
-                else:
-                    st.info("Nenhuma alteração detectada nas dívidas concluídas.")
+                        if (
+                            row_old["Cartão"] != row_new["Cartão"]
+                            or row_old["Categoria"] != row_new["Categoria"]
+                            or row_old["Descrição"] != row_new["Descrição"]
+                        ):
+                            update_transaction_fields(
+                                transaction_id=int(idx),
+                                new_category=row_new["Categoria"],
+                                new_card_name=row_new["Cartão"],
+                                new_description=row_new["Descrição"],
+                            )
+                            alteracoes_c += 1
+
+                    if alteracoes_c > 0:
+                        st.success(f"{alteracoes_c} compra(s) concluída(s) atualizada(s) com sucesso.")
+                    else:
+                        st.info("Nenhuma alteração detectada nas dívidas concluídas.")
