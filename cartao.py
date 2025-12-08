@@ -3,6 +3,53 @@ import pandas as pd
 import altair as alt
 from datetime import date
 from dateutil.relativedelta import relativedelta
+import psycopg2
+
+
+# -------------------------------------------------------------------
+# CONEXÃO COM BANCO / UPDATE DE TRANSAÇÕES
+# -------------------------------------------------------------------
+
+def get_connection():
+    """
+    Abre conexão com o banco (Supabase/Postgres) usando st.secrets,
+    no mesmo padrão do controle.py.
+    """
+    dsn = st.secrets["supabase_db"]["url"]
+    conn = psycopg2.connect(dsn, sslmode="require")
+    return conn
+
+
+def update_transaction_fields(
+    transaction_id: int,
+    new_category: str,
+    new_card_name: str,
+    new_description: str,
+):
+    """
+    Atualiza apenas campos de alto nível da transação original:
+    - categoria
+    - card_name
+    - descrição
+
+    Os valores e número de parcelas continuam sendo definidos
+    na tela de lançamentos (dashboard).
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE transactions
+           SET category = %s,
+               card_name = %s,
+               description = %s
+         WHERE id = %s
+        """,
+        (new_category, new_card_name, new_description, transaction_id),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 # -------------------------------------------------------------------
@@ -34,16 +81,19 @@ def expand_installments(df: pd.DataFrame, due_day: int) -> pd.DataFrame:
         for k in range(1, n_parc + 1):
             due_date = first_due + relativedelta(months=k - 1)
 
-            rows.append({
-                "category": row["category"],
-                "purchase_date": purchase_date,
-                "card_name": row["card_name"],
-                "description": row["description"],
-                "installment_no": k,
-                "total_installments": n_parc,
-                "installment_value": parcela_value,
-                "due_date": due_date,
-            })
+            rows.append(
+                {
+                    "transaction_id": row["id"],
+                    "category": row["category"],
+                    "purchase_date": purchase_date,
+                    "card_name": row["card_name"],
+                    "description": row["description"],
+                    "installment_no": k,
+                    "total_installments": n_parc,
+                    "installment_value": parcela_value,
+                    "due_date": due_date,
+                }
+            )
 
     if not rows:
         return pd.DataFrame()
@@ -83,100 +133,66 @@ def compute_card_summary(expanded: pd.DataFrame):
     return valor_fatura_mes, divida_ano_a_pagar, valor_pago_ano
 
 
-def consolidar_dividas_ativas(expanded: pd.DataFrame) -> pd.DataFrame:
+def build_purchase_overview(expanded: pd.DataFrame) -> pd.DataFrame:
     """
-    Consolida parcelas em UMA LINHA por compra, informando:
+    Consolida por COMPRA (transaction_id), calculando:
+      - status: 'ativa' ou 'concluida'
       - total da compra
-      - parcelas pagas
-      - parcelas restantes
+      - parcelas pagas / restantes
       - próximo vencimento
       - saldo a pagar
-
-    Considera 'ativas' as compras com pelo menos UMA parcela com due_date >= hoje.
     """
     if expanded.empty:
         return pd.DataFrame()
 
     today = date.today()
-
-    keys = [
-        "card_name",
-        "category",
-        "purchase_date",
-        "description",
-        "total_installments",
-        "installment_value",
-    ]
     rows = []
 
-    for _, g in expanded.groupby(keys, dropna=False):
+    for tid, g in expanded.groupby("transaction_id", dropna=False):
+        g = g.sort_values("installment_no")
         total_installments = int(g["total_installments"].iloc[0])
         parcela_value = float(g["installment_value"].iloc[0])
-
-        dues = g.sort_values("installment_no")["due_date"].tolist()
+        dues = g["due_date"].tolist()
 
         paid = sum(1 for d in dues if d < today)
         remaining = total_installments - paid
+        last_due = max(dues)
 
-        if remaining <= 0:
-            # já quitada, não entra como ativa
-            continue
+        if remaining <= 0 and last_due < today:
+            status = "concluida"
+        else:
+            status = "ativa"
 
-        next_due = min(d for d in dues if d >= today)
+        next_due = None
+        if remaining > 0:
+            future_dues = [d for d in dues if d >= today]
+            next_due = min(future_dues) if future_dues else None
 
         total_value = total_installments * parcela_value
-        remaining_value = remaining * parcela_value
+        remaining_value = max(0, remaining * parcela_value)
 
-        rows.append({
-            "card_name": g["card_name"].iloc[0],
-            "category": g["category"].iloc[0],
-            "purchase_date": g["purchase_date"].iloc[0],
-            "total_value": total_value,
-            "installments_paid": paid,
-            "installments_remaining": remaining,
-            "next_due": next_due,
-            "remaining_value": remaining_value,
-            "description": g["description"].iloc[0],
-        })
+        rows.append(
+            {
+                "transaction_id": tid,
+                "card_name": g["card_name"].iloc[0],
+                "category": g["category"].iloc[0],
+                "purchase_date": g["purchase_date"].iloc[0],
+                "total_installments": total_installments,
+                "installments_paid": paid,
+                "installments_remaining": remaining,
+                "total_value": total_value,
+                "remaining_value": remaining_value,
+                "next_due": next_due,
+                "description": g["description"].iloc[0],
+                "status": status,
+            }
+        )
 
-    out = pd.DataFrame(rows)
-    if out.empty:
-        return out
+    return pd.DataFrame(rows)
 
-    out["purchase_date"] = out["purchase_date"].apply(lambda d: d.strftime("%d/%m/%Y"))
-    out["next_due"] = out["next_due"].apply(lambda d: d.strftime("%d/%m/%Y"))
 
-    out["total_value"] = out["total_value"].map(
-        lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    )
-    out["remaining_value"] = out["remaining_value"].map(
-        lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    )
-
-    out = out.rename(columns={
-        "card_name": "Cartão",
-        "category": "Categoria",
-        "purchase_date": "Data da compra",
-        "total_value": "Total da compra",
-        "installments_paid": "Parcelas pagas",
-        "installments_remaining": "Parcelas restantes",
-        "next_due": "Próximo vencimento",
-        "remaining_value": "Saldo a pagar",
-        "description": "Descrição",
-    })
-
-    cols = [
-        "Cartão",
-        "Categoria",
-        "Data da compra",
-        "Total da compra",
-        "Parcelas pagas",
-        "Parcelas restantes",
-        "Próximo vencimento",
-        "Saldo a pagar",
-        "Descrição",
-    ]
-    return out[cols]
+def format_brl(v: float) -> str:
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 # -------------------------------------------------------------------
@@ -237,21 +253,21 @@ def pagina_cartao(df: pd.DataFrame):
     col1, col2, col3 = st.columns(3)
     col1.metric(
         "Cartão a pagar no mês",
-        f"R$ {valor_fatura_mes:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+        format_brl(valor_fatura_mes),
     )
     col2.metric(
         "Dívida do ano ainda a pagar",
-        f"R$ {divida_ano_a_pagar:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+        format_brl(divida_ano_a_pagar),
     )
     col3.metric(
         "Valor já pago no ano",
-        f"R$ {valor_pago_ano:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+        format_brl(valor_pago_ano),
     )
 
     st.markdown("---")
 
     # -------------------------------------------------------------------
-    # GRÁFICO DE CATEGORIAS + PORCENTAGENS
+    # GRÁFICO DE CATEGORIAS + PORCENTAGENS (LARANJA)
     # -------------------------------------------------------------------
     st.subheader("Categorias mais gastas no cartão (ano atual)")
 
@@ -272,7 +288,7 @@ def pagina_cartao(df: pd.DataFrame):
 
         chart_cat = (
             alt.Chart(cat_totais)
-            .mark_bar(color="#FFA500") # laranja
+            .mark_bar(color="#FFA500")  # laranja
             .encode(
                 x=alt.X("category:N", title="Categoria"),
                 y=alt.Y("total:Q", title="Valor (R$)"),
@@ -287,9 +303,7 @@ def pagina_cartao(df: pd.DataFrame):
 
         st.markdown("#### Participação de cada categoria no total de despesas com cartão")
         cat_view = cat_totais.copy()
-        cat_view["total"] = cat_view["total"].map(
-            lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
+        cat_view["total"] = cat_view["total"].map(format_brl)
         cat_view["percentual"] = cat_view["percentual"].map(lambda v: f"{v:.2f}%")
         st.dataframe(cat_view, use_container_width=True)
     else:
@@ -298,7 +312,7 @@ def pagina_cartao(df: pd.DataFrame):
     st.markdown("---")
 
     # -------------------------------------------------------------------
-    # HISTÓRICO ANUAL (por mês de vencimento)
+    # HISTÓRICO ANUAL (por mês de vencimento) - MESES EM ORDEM
     # -------------------------------------------------------------------
     st.subheader("Histórico anual de uso do cartão (por vencimento)")
 
@@ -316,26 +330,45 @@ def pagina_cartao(df: pd.DataFrame):
                 .rename(columns={"mes": "Mês", "installment_value": "Fatura"})
             )
 
-            mensal["NomeMes"] = mensal["Mês"].map({
-                1: "Jan",
-                2: "Fev",
-                3: "Mar",
-                4: "Abr",
-                5: "Mai",
-                6: "Jun",
-                7: "Jul",
-                8: "Ago",
-                9: "Set",
-                10: "Out",
-                11: "Nov",
-                12: "Dez",
-            })
+            mensal["NomeMes"] = mensal["Mês"].map(
+                {
+                    1: "Jan",
+                    2: "Fev",
+                    3: "Mar",
+                    4: "Abr",
+                    5: "Mai",
+                    6: "Jun",
+                    7: "Jul",
+                    8: "Ago",
+                    9: "Set",
+                    10: "Out",
+                    11: "Nov",
+                    12: "Dez",
+                }
+            )
 
             chart_hist = (
                 alt.Chart(mensal)
                 .mark_line(point=True)
                 .encode(
-                    x=alt.X("NomeMes:N", title="Mês"),
+                    x=alt.X(
+                        "NomeMes:N",
+                        title="Mês",
+                        sort=[
+                            "Jan",
+                            "Fev",
+                            "Mar",
+                            "Abr",
+                            "Mai",
+                            "Jun",
+                            "Jul",
+                            "Ago",
+                            "Set",
+                            "Out",
+                            "Nov",
+                            "Dez",
+                        ],
+                    ),
                     y=alt.Y("Fatura:Q", title="Valor (R$)"),
                     tooltip=[
                         alt.Tooltip("NomeMes:N", title="Mês"),
@@ -352,7 +385,7 @@ def pagina_cartao(df: pd.DataFrame):
     st.markdown("---")
 
     # -------------------------------------------------------------------
-    # TABELAS: DÍVIDAS ATIVAS x CONCLUÍDAS + FILTROS
+    # VISÃO CONSOLIDADA POR COMPRA + FILTROS + EDIÇÃO
     # -------------------------------------------------------------------
     st.subheader("Dívidas no cartão")
 
@@ -360,12 +393,18 @@ def pagina_cartao(df: pd.DataFrame):
         st.info("Não há dívidas de cartão registradas.")
         return
 
-    base = expanded.copy()
+    compras = build_purchase_overview(expanded)
 
-    # opções de cartão, categoria e ano (da data da compra)
-    cartoes = sorted(base["card_name"].dropna().unique().tolist())
-    categorias = sorted(base["category"].dropna().unique().tolist())
-    anos = sorted({d.year for d in base["purchase_date"]})
+    if compras.empty:
+        st.info("Nenhuma compra com cartão encontrada.")
+        return
+
+    # -------------------------
+    # Filtros
+    # -------------------------
+    cartoes = sorted(compras["card_name"].dropna().unique().tolist())
+    categorias = sorted(compras["category"].dropna().unique().tolist())
+    anos = sorted({d.year for d in compras["purchase_date"]})
 
     with st.form("filtros_dividas_cartao"):
         col_f1, col_f2, col_f3, col_f4 = st.columns(4)
@@ -399,58 +438,27 @@ def pagina_cartao(df: pd.DataFrame):
 
         aplicar = st.form_submit_button("Aplicar filtros")
 
-    df_filt = base
+    compras_filt = compras.copy()
 
     if card_sel != "Todos":
-        df_filt = df_filt[df_filt["card_name"] == card_sel]
+        compras_filt = compras_filt[compras_filt["card_name"] == card_sel]
 
     if cat_sel != "Todas":
-        df_filt = df_filt[df_filt["category"] == cat_sel]
+        compras_filt = compras_filt[compras_filt["category"] == cat_sel]
 
     if ano_sel != "Todos":
-        df_filt = df_filt[df_filt["purchase_date"].apply(lambda d: d.year == int(ano_sel))]
-
-    if texto_busca:
-        df_filt = df_filt[
-            df_filt["description"].fillna("").str.contains(texto_busca, case=False, na=False)
+        compras_filt = compras_filt[
+            compras_filt["purchase_date"].apply(lambda d: d.year == int(ano_sel))
         ]
 
-    today = date.today()
+    if texto_busca:
+        compras_filt = compras_filt[
+            compras_filt["description"].fillna("").str.contains(texto_busca, case=False, na=False)
+        ]
 
-    # ------------ NOVA LÓGICA PARA CONCLUÍDAS 100% QUITADAS ------------
-    group_cols = [
-        "card_name",
-        "category",
-        "purchase_date",
-        "description",
-        "total_installments",
-        "installment_value",
-    ]
-
-    if not df_filt.empty:
-        df_filt["purchase_group"] = df_filt[group_cols].apply(
-            lambda r: tuple(r.values.tolist()),
-            axis=1,
-        )
-
-        fully_paid_groups = set()
-        for grp_key, g in df_filt.groupby("purchase_group", dropna=False):
-            # Se a última parcela (maior due_date) já passou, a compra está 100% concluída
-            if g["due_date"].max() < today:
-                fully_paid_groups.add(grp_key)
-
-        concluido = df_filt[
-            (df_filt["due_date"] < today) &
-            (df_filt["purchase_group"].isin(fully_paid_groups))
-        ].copy()
-
-        # removemos a coluna auxiliar para o restante do fluxo
-        df_filt = df_filt.drop(columns=["purchase_group"])
-    else:
-        concluido = df_filt.copy()
-
-    # Dívidas ativas consolidadas (1 linha por compra)
-    df_ativas = consolidar_dividas_ativas(df_filt)
+    # Separa ativas e concluídas (100% pagas)
+    df_ativas = compras_filt[compras_filt["status"] == "ativa"].copy()
+    df_concluidas = compras_filt[compras_filt["status"] == "concluida"].copy()
 
     if status_sel == "Ativas":
         mostrar_ativas = True
@@ -462,56 +470,174 @@ def pagina_cartao(df: pd.DataFrame):
         mostrar_ativas = True
         mostrar_concluidas = True
 
-    def format_table(df_tab: pd.DataFrame) -> pd.DataFrame:
-        if df_tab.empty:
-            return df_tab
-        out = df_tab.copy()
-        out["purchase_date"] = out["purchase_date"].apply(lambda d: d.strftime("%d/%m/%Y"))
-        out["due_date"] = out["due_date"].apply(lambda d: d.strftime("%d/%m/%Y"))
-        out["installment_value"] = out["installment_value"].map(
-            lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        )
-        out.rename(
-            columns={
-                "card_name": "Cartão",
-                "category": "Categoria",
-                "purchase_date": "Data da compra",
-                "due_date": "Vencimento",
-                "installment_no": "Parcela",
-                "total_installments": "Total parcelas",
-                "installment_value": "Valor parcela",
-                "description": "Descrição",
-            },
-            inplace=True,
-        )
-        cols = [
-            "Cartão",
-            "Categoria",
-            "Data da compra",
-            "Vencimento",
-            "Parcela",
-            "Total parcelas",
-            "Valor parcela",
-            "Descrição",
-        ]
-        return out[cols]
-
+    # -------------------------------------------------------------------
+    # TABELA EDITÁVEL: DÍVIDAS ATIVAS
+    # -------------------------------------------------------------------
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("#### Dívidas ativas (consolidadas)")
+        st.markdown("#### Dívidas ativas (consolidadas e editáveis)")
+
         if not mostrar_ativas:
             st.write("Filtrando apenas dívidas concluídas.")
         elif df_ativas.empty:
             st.write("✔️ Nenhuma dívida ativa encontrada com os filtros selecionados.")
         else:
-            st.dataframe(df_ativas, use_container_width=True, height=350)
+            df_view_ativas = df_ativas.copy()
+            df_view_ativas["Data da compra"] = df_view_ativas["purchase_date"].apply(
+                lambda d: d.strftime("%d/%m/%Y")
+            )
+            df_view_ativas["Próximo vencimento"] = df_view_ativas["next_due"].apply(
+                lambda d: d.strftime("%d/%m/%Y") if pd.notnull(d) else "-"
+            )
+            df_view_ativas["Total da compra"] = df_view_ativas["total_value"].map(format_brl)
+            df_view_ativas["Saldo a pagar"] = df_view_ativas["remaining_value"].map(format_brl)
 
+            df_view_ativas = df_view_ativas.rename(
+                columns={
+                    "transaction_id": "ID",
+                    "card_name": "Cartão",
+                    "category": "Categoria",
+                    "installments_paid": "Parcelas pagas",
+                    "installments_remaining": "Parcelas restantes",
+                    "description": "Descrição",
+                }
+            )
+
+            # Mantém só colunas relevantes
+            df_view_ativas = df_view_ativas[
+                [
+                    "ID",
+                    "Cartão",
+                    "Categoria",
+                    "Data da compra",
+                    "Total da compra",
+                    "Parcelas pagas",
+                    "Parcelas restantes",
+                    "Próximo vencimento",
+                    "Saldo a pagar",
+                    "Descrição",
+                ]
+            ]
+
+            edited_ativas = st.data_editor(
+                df_view_ativas,
+                num_rows="fixed",
+                key="editor_dividas_ativas",
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", disabled=True),
+                    "Total da compra": st.column_config.TextColumn(disabled=True),
+                    "Parcelas pagas": st.column_config.NumberColumn(disabled=True),
+                    "Parcelas restantes": st.column_config.NumberColumn(disabled=True),
+                    "Próximo vencimento": st.column_config.TextColumn(disabled=True),
+                    "Saldo a pagar": st.column_config.TextColumn(disabled=True),
+                    # "Cartão", "Categoria" e "Descrição" ficam editáveis
+                },
+            )
+
+            if st.button("Salvar alterações (ativas)"):
+                # Junta com original para detectar mudanças apenas em Cartão, Categoria, Descrição
+                base = df_view_ativas.set_index("ID")
+                novo = edited_ativas.set_index("ID")
+
+                alteracoes = 0
+                for idx in novo.index:
+                    row_old = base.loc[idx]
+                    row_new = novo.loc[idx]
+
+                    if (
+                        row_old["Cartão"] != row_new["Cartão"]
+                        or row_old["Categoria"] != row_new["Categoria"]
+                        or row_old["Descrição"] != row_new["Descrição"]
+                    ):
+                        update_transaction_fields(
+                            transaction_id=int(idx),
+                            new_category=row_new["Categoria"],
+                            new_card_name=row_new["Cartão"],
+                            new_description=row_new["Descrição"],
+                        )
+                        alteracoes += 1
+
+                if alteracoes > 0:
+                    st.success(f"{alteracoes} compra(s) ativa(s) atualizada(s) com sucesso.")
+                else:
+                    st.info("Nenhuma alteração detectada nas dívidas ativas.")
+
+    # -------------------------------------------------------------------
+    # TABELA EDITÁVEL: DÍVIDAS CONCLUÍDAS (100% QUITADAS)
+    # -------------------------------------------------------------------
     with col_b:
-        st.markdown("#### Dívidas concluídas (compras 100% quitadas)")
+        st.markdown("#### Dívidas concluídas (compras 100% quitadas e editáveis)")
+
         if not mostrar_concluidas:
             st.write("Filtrando apenas dívidas ativas.")
-        elif concluido.empty:
+        elif df_concluidas.empty:
             st.write("Nenhuma compra 100% quitada encontrada com os filtros selecionados.")
         else:
-            st.dataframe(format_table(concluido), use_container_width=True, height=350)
+            df_view_conc = df_concluidas.copy()
+            df_view_conc["Data da compra"] = df_view_conc["purchase_date"].apply(
+                lambda d: d.strftime("%d/%m/%Y")
+            )
+            df_view_conc["Total da compra"] = df_view_conc["total_value"].map(format_brl)
+
+            df_view_conc = df_view_conc.rename(
+                columns={
+                    "transaction_id": "ID",
+                    "card_name": "Cartão",
+                    "category": "Categoria",
+                    "total_installments": "Parcelas pagas",
+                    "description": "Descrição",
+                }
+            )
+
+            df_view_conc = df_view_conc[
+                [
+                    "ID",
+                    "Cartão",
+                    "Categoria",
+                    "Data da compra",
+                    "Total da compra",
+                    "Parcelas pagas",
+                    "Descrição",
+                ]
+            ]
+
+            edited_conc = st.data_editor(
+                df_view_conc,
+                num_rows="fixed",
+                key="editor_dividas_concluidas",
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", disabled=True),
+                    "Total da compra": st.column_config.TextColumn(disabled=True),
+                    "Parcelas pagas": st.column_config.NumberColumn(disabled=True),
+                    "Data da compra": st.column_config.TextColumn(disabled=True),
+                    # "Cartão", "Categoria" e "Descrição" editáveis
+                },
+            )
+
+            if st.button("Salvar alterações (concluídas)"):
+                base_c = df_view_conc.set_index("ID")
+                novo_c = edited_conc.set_index("ID")
+
+                alteracoes_c = 0
+                for idx in novo_c.index:
+                    row_old = base_c.loc[idx]
+                    row_new = novo_c.loc[idx]
+
+                    if (
+                        row_old["Cartão"] != row_new["Cartão"]
+                        or row_old["Categoria"] != row_new["Categoria"]
+                        or row_old["Descrição"] != row_new["Descrição"]
+                    ):
+                        update_transaction_fields(
+                            transaction_id=int(idx),
+                            new_category=row_new["Categoria"],
+                            new_card_name=row_new["Cartão"],
+                            new_description=row_new["Descrição"],
+                        )
+                        alteracoes_c += 1
+
+                if alteracoes_c > 0:
+                    st.success(f"{alteracoes_c} compra(s) concluída(s) atualizada(s) com sucesso.")
+                else:
+                    st.info("Nenhuma alteração detectada nas dívidas concluídas.")
