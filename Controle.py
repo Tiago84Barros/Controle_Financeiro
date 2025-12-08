@@ -580,16 +580,18 @@ def main():
             key="data_lanc",
         )
     
-        # Forma de pagamento
-        if t_type in ["entrada", "saida"]:
+        # Forma de pagamento (APENAS PARA SAÍDA)
+        if t_type == "saida":
             payment_type = st.selectbox(
                 "Forma de pagamento",
                 ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
                 key="payment_type",
             )
         else:
-            payment_type = "Conta"   # investimento sempre da conta
-    
+            # Para entrada e investimento não mostramos o campo,
+            # e gravamos como vindo da conta.
+            payment_type = "Conta"
+        
         # --- Valor + Parcelas lado a lado (quando for cartão de crédito) ---
         card_name = ""
         installments = 1
