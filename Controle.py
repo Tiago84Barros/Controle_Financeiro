@@ -595,35 +595,39 @@ def main():
                 "Data",
                 value=today,
                 format="DD/MM/YYYY",
-                key="data_lanc"
+                key="data_lanc",
             )
     
             # 🔹 Campo Valor (como string BR)
             valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
     
-            # 🔹 Forma de pagamento
+            # 🔹 Forma de pagamento (só aparece para entrada/saída)
             if t_type in ["entrada", "saida"]:
                 payment_type = st.selectbox(
                     "Forma de pagamento",
-                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
+                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
+                    key="payment_type",
                 )
             else:
-                # investimento sempre sai da conta
-                payment_type = "Conta"
+                payment_type = "Conta"   # investimento sai sempre da conta
     
             # valores padrão
             card_name = ""
             installments = 1
     
-            # 🔴 CAMPOS EXTRAS APENAS PARA SAÍDA + CARTÃO DE CRÉDITO
-            if t_type == "saida" and payment_type == "Cartão de crédito":
-                card_name = st.text_input("Nome do cartão")
+            # 🔴 CAMPOS EXTRAS APENAS QUANDO FOR CARTÃO DE CRÉDITO
+            if payment_type == "Cartão de crédito":
+                card_name = st.text_input(
+                    "Nome do cartão",
+                    key="card_name",
+                )
                 installments = st.number_input(
                     "Parcelas",
                     min_value=1,
                     value=1,
                     step=1,
-                    help="Número de parcelas da compra no cartão"
+                    key="card_installments",
+                    help="Número de parcelas da compra no cartão",
                 )
     
             description = st.text_area("Descrição (opcional)")
@@ -648,6 +652,7 @@ def main():
                     st.success("Lançamento salvo com sucesso!")
                 else:
                     st.error("Preencha categoria e valor maior que zero.")
+
                                
 
     if "user_id" not in st.session_state:
