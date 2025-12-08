@@ -272,7 +272,7 @@ def pagina_cartao(df: pd.DataFrame):
 
         chart_cat = (
             alt.Chart(cat_totais)
-            .mark_bar()
+            .mark_bar(color="#FFA500") # laranja
             .encode(
                 x=alt.X("category:N", title="Categoria"),
                 y=alt.Y("total:Q", title="Valor (R$)"),
