@@ -906,7 +906,7 @@ def main():
 
         # 🔹 últimos 10 de cada tipo
         df_ult_entrada = get_last_n(df, "entrada", 10)
-        df_ult_saida = get_last_n(df, "saida", 10)
+        df_ult_saida = get_last_n(df, "saida", 100)
         df_ult_invest = get_last_n(df, "investimento", 10)
 
         # 🔹 concatena mantendo ordem: entrada → investimento → saída
