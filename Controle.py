@@ -543,135 +543,129 @@ def main():
         # --- NOVO LANÇAMENTO ---
         st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
         st.subheader("Novo lançamento")
+
+        # Inicializa os valores padrão apenas uma vez
+        if "novo_lanc_inicializado" not in st.session_state:
+            st.session_state["novo_lanc_inicializado"] = True
+            st.session_state["tipo_lancamento"] = "entrada"
+            st.session_state["categoria_padrao"] = ""
+            st.session_state["categoria_personalizada"] = ""
+            st.session_state["data_lanc"] = today
+            st.session_state["valor_lanc"] = ""
+            st.session_state["payment_type"] = "Conta"
+            st.session_state["card_name"] = ""
+            st.session_state["parcelas"] = 1
+            st.session_state["descricao"] = ""
     
-        # Tipo
-        t_type = st.radio(
-            "Tipo",
-            ["entrada", "saida", "investimento"],
-            horizontal=True,
-            key="tipo_lancamento",
-        )
-    
-        # Espaço + traço entre Tipo e Categoria
-        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-        st.markdown(
-            "<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>",
-            unsafe_allow_html=True,
-        )
-    
-        # Categoria dinâmica
-        if t_type == "entrada":
-            cat_choice = st.selectbox(
-                "Categoria",
-                income_categories + ["Outra"],
-                key="cat_entrada",
+            # Tipo do lançamento (usa session_state)
+            t_type = st.radio(
+                "Tipo",
+                ["entrada", "saida", "investimento"],
+                horizontal=True,
+                key="tipo_lancamento",
             )
-        elif t_type == "saida":
-            cat_choice = st.selectbox(
-                "Categoria",
-                expense_categories + ["Outra"],
-                key="cat_saida",
-            )
-        else:  # investimento
-            cat_choice = st.selectbox(
-                "Categoria",
-                investment_categories,
-                key="cat_inv",
-            )
-    
-        if cat_choice == "Outra":
-            category = st.text_input("Categoria personalizada", key="cat_personalizada")
-        else:
-            category = cat_choice
-    
-        # Data
-        d = st.date_input(
-            "Data",
-            value=today,
-            format="DD/MM/YYYY",
-            key="data_lanc",
-        )
-    
-        # Forma de pagamento (APENAS PARA SAÍDA)
-        if t_type == "saida":
-            payment_type = st.selectbox(
-                "Forma de pagamento",
-                ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
-                key="payment_type",
-            )
-        else:
-            # Para entrada e investimento não mostramos o campo,
-            # e gravamos como vindo da conta.
-            payment_type = "Conta"
         
-        # --- Valor + Parcelas lado a lado (quando for cartão de crédito) ---
-        card_name = ""
-        installments = 1
-    
-        if t_type == "saida" and payment_type == "Cartão de crédito":
-            col_valor, col_parc = st.columns([2, 1])
-    
-            with col_valor:
-                valor_str = st.text_input(
-                    "Valor (R$)",
-                    value="",
-                    placeholder="0,00",
-                    key="valor_input_cartao",
+            # Seleção de categorias, dependente do tipo
+            if t_type == "entrada":
+                cat_choice = st.selectbox(
+                    "Categoria",
+                    income_categories + ["Outra"],
+                    key="categoria_padrao"
                 )
-    
-            with col_parc:
+            elif t_type == "saida":
+                cat_choice = st.selectbox(
+                    "Categoria",
+                    expense_categories + ["Outra"],
+                    key="categoria_padrao"
+                )
+            else:  # investimento
+                cat_choice = st.selectbox(
+                    "Categoria",
+                    investment_categories,
+                    key="categoria_padrao"
+                )
+        
+            # Se escolher "Outra", habilita campo personalizado
+            if cat_choice == "Outra":
+                category = st.text_input(
+                    "Categoria personalizada",
+                    key="categoria_personalizada"
+                )
+            else:
+                category = cat_choice
+                st.session_state["categoria_personalizada"] = ""
+        
+            # Data
+            d = st.date_input(
+                "Data",
+                value=st.session_state["data_lanc"],
+                format="DD/MM/YYYY",
+                key="data_lanc"
+            )
+        
+            # Valor em formato BR
+            valor_str = st.text_input(
+                "Valor (R$)",
+                value=st.session_state["valor_lanc"],
+                placeholder="0,00",
+                key="valor_lanc"
+            )
+        
+            # Forma de pagamento
+            if t_type in ["entrada", "saida"]:
+                payment_type = st.selectbox(
+                    "Forma de pagamento",
+                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
+                    key="payment_type"
+                )
+            else:
+                payment_type = "Conta"
+                st.session_state["payment_type"] = "Conta"
+        
+            card_name = ""
+            installments = 1
+        
+            if payment_type == "Cartão de crédito":
+                card_name = st.text_input(
+                    "Nome do cartão",
+                    key="card_name"
+                )
                 installments = st.number_input(
                     "Parcelas",
                     min_value=1,
-                    value=1,
+                    value=st.session_state["parcelas"],
                     step=1,
-                    key="installments_input",
+                    key="parcelas"
                 )
-    
-            # Nome do cartão logo abaixo
-            card_name = st.text_input(
-                "Cartão",
-                key="card_name_input",
-            )
-    
-        else:
-            # Caso NÃO seja cartão de crédito, valor ocupa a linha toda
-            valor_str = st.text_input(
-                "Valor (R$)",
-                value="",
-                placeholder="0,00",
-                key="valor_input",
-            )
-    
-        # Descrição
-        description = st.text_area(
-            "Descrição (opcional)",
-            key="descricao_input",
-        )
-    
-        # Botão de salvar
-        if st.button("Salvar lançamento", use_container_width=True):
-            amount = parse_brl_to_float(valor_str)
-    
-            if amount > 0 and category.strip():
-                insert_transaction(
-                    user_id,
-                    t_type,
-                    category,
-                    d,
-                    amount,
-                    payment_type,
-                    card_name,
-                    installments,
-                    description,
-                )
-                st.success("Lançamento salvo com sucesso!")
             else:
-                st.error("Preencha categoria e valor maior que zero.")
-
-    
-
-                               
+                st.session_state["card_name"] = ""
+                st.session_state["parcelas"] = 1
+        
+            description = st.text_area(
+                "Descrição (opcional)",
+                key="descricao"
+            )
+            
+                # Botão de salvar
+                if st.button("Salvar lançamento", use_container_width=True):
+                    amount = parse_brl_to_float(valor_str)
+            
+                    if amount > 0 and category.strip():
+                        insert_transaction(
+                            user_id,
+                            t_type,
+                            category,
+                            d,
+                            amount,
+                            payment_type,
+                            card_name,
+                            installments,
+                            description,
+                        )
+                        st.success("Lançamento salvo com sucesso!")
+                    else:
+                        st.error("Preencha categoria e valor maior que zero.")
+                             
 
     if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
@@ -905,9 +899,9 @@ def main():
             return df_tipo.sort_values(by="date", ascending=False).head(n)
 
         # 🔹 últimos 10 de cada tipo
-        df_ult_entrada = get_last_n(df, "entrada", 10)
-        df_ult_saida = get_last_n(df, "saida", 100)
-        df_ult_invest = get_last_n(df, "investimento", 10)
+        df_ult_entrada = get_last_n(df, "entrada", 20)
+        df_ult_saida = get_last_n(df, "saida", 20)
+        df_ult_invest = get_last_n(df, "investimento", 20)
 
         # 🔹 concatena mantendo ordem: entrada → investimento → saída
         df_sorted = pd.concat(
