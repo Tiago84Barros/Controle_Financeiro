@@ -119,7 +119,7 @@ def consolidar_dividas_ativas(expanded: pd.DataFrame) -> pd.DataFrame:
         remaining = total_installments - paid
 
         if remaining <= 0:
-            # já quitada, não é ativa
+            # já quitada, não entra como ativa
             continue
 
         next_due = min(d for d in dues if d >= today)
@@ -417,7 +417,39 @@ def pagina_cartao(df: pd.DataFrame):
 
     today = date.today()
 
-    concluido = df_filt[df_filt["due_date"] < today].copy()
+    # ------------ NOVA LÓGICA PARA CONCLUÍDAS 100% QUITADAS ------------
+    group_cols = [
+        "card_name",
+        "category",
+        "purchase_date",
+        "description",
+        "total_installments",
+        "installment_value",
+    ]
+
+    if not df_filt.empty:
+        df_filt["purchase_group"] = df_filt[group_cols].apply(
+            lambda r: tuple(r.values.tolist()),
+            axis=1,
+        )
+
+        fully_paid_groups = set()
+        for grp_key, g in df_filt.groupby("purchase_group", dropna=False):
+            # Se a última parcela (maior due_date) já passou, a compra está 100% concluída
+            if g["due_date"].max() < today:
+                fully_paid_groups.add(grp_key)
+
+        concluido = df_filt[
+            (df_filt["due_date"] < today) &
+            (df_filt["purchase_group"].isin(fully_paid_groups))
+        ].copy()
+
+        # removemos a coluna auxiliar para o restante do fluxo
+        df_filt = df_filt.drop(columns=["purchase_group"])
+    else:
+        concluido = df_filt.copy()
+
+    # Dívidas ativas consolidadas (1 linha por compra)
     df_ativas = consolidar_dividas_ativas(df_filt)
 
     if status_sel == "Ativas":
@@ -476,10 +508,10 @@ def pagina_cartao(df: pd.DataFrame):
             st.dataframe(df_ativas, use_container_width=True, height=350)
 
     with col_b:
-        st.markdown("#### Dívidas concluídas (parcelas já pagas)")
+        st.markdown("#### Dívidas concluídas (compras 100% quitadas)")
         if not mostrar_concluidas:
             st.write("Filtrando apenas dívidas ativas.")
         elif concluido.empty:
-            st.write("Nenhuma parcela concluída encontrada com os filtros selecionados.")
+            st.write("Nenhuma compra 100% quitada encontrada com os filtros selecionados.")
         else:
             st.dataframe(format_table(concluido), use_container_width=True, height=350)
