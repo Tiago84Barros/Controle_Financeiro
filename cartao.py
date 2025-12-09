@@ -522,12 +522,13 @@ def pagina_cartao(df: pd.DataFrame):
             )
 
             if not habilitar_edicao_ativas:
-                st.dataframe(df_view_ativas, use_container_width=True, height=350, hide_index=True)
+                st.dataframe(df_view_ativas, use_container_width=True, height=350, hide_index=True,)
             else:
                 edited_ativas = st.data_editor(
                     df_view_ativas,
                     num_rows="fixed",
                     key="editor_dividas_ativas",
+                    hide_index=True,
                     column_config={
                         "ID": st.column_config.NumberColumn("ID", disabled=True),
                         "Total da compra": st.column_config.TextColumn(disabled=True),
@@ -611,12 +612,13 @@ def pagina_cartao(df: pd.DataFrame):
             )
 
             if not habilitar_edicao_concluidas:
-                st.dataframe(df_view_conc, use_container_width=True, height=350, hide_index=True)
+                st.dataframe(df_view_conc, use_container_width=True, height=350, hide_index=True,)
             else:
                 edited_conc = st.data_editor(
                     df_view_conc,
                     num_rows="fixed",
                     key="editor_dividas_concluidas",
+                    hide_index=True,
                     column_config={
                         "ID": st.column_config.NumberColumn("ID", disabled=True),
                         "Total da compra": st.column_config.TextColumn(disabled=True),
