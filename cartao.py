@@ -524,7 +524,7 @@ def pagina_cartao(df: pd.DataFrame):
             if not habilitar_edicao_ativas:
                 # Esconde ID e índice na visualização
                 df_view_ativas_sem_id = df_view_ativas.drop(columns=["ID"])
-                st.dataframe(df_view_ativas_sem_idd, use_container_width=True, height=350, hide_index=True,)
+                st.dataframe(df_view_ativas_sem_id, use_container_width=True, height=350, hide_index=True,)
             else:
                 edited_ativas = st.data_editor(
                     df_view_ativas,
