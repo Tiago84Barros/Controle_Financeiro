@@ -545,7 +545,7 @@ def main():
         st.subheader("Novo lançamento")
         
         # -------------------------------------------
-        # 1) Tipo (fora do form, para ser reativo)
+        # 1) Tipo (reativo)
         # -------------------------------------------
         t_type = st.radio(
             "Tipo",
@@ -553,16 +553,11 @@ def main():
             horizontal=True,
         )
         
-        # Espaço + divisor
-        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-        st.markdown(
-            "<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>",
-            unsafe_allow_html=True,
-        )
+        # Divisor
+        st.markdown("<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>", unsafe_allow_html=True)
         
         # -------------------------------------------
-        # 2) Forma de pagamento (fora do form, reativo)
-        #    Só aparece para SAÍDA
+        # 2) Forma de pagamento (só para SAÍDA)
         # -------------------------------------------
         if t_type == "saida":
             payment_type = st.selectbox(
@@ -572,18 +567,14 @@ def main():
         else:
             payment_type = "Conta"
         
-        # indicador se é cartão de crédito
-        is_card = (t_type == "saida" and payment_type == "Cartão de crédito")
+        # Deve mostrar campos de cartão?
+        show_card_fields = (t_type == "saida" and payment_type == "Cartão de crédito")
         
-        # Outro divisor antes do formulário
-        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
-        st.markdown(
-            "<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>",
-            unsafe_allow_html=True,
-        )
+        # Outro divisor
+        st.markdown("<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>", unsafe_allow_html=True)
         
         # -------------------------------------------
-        # 3) FORMULÁRIO (limpa ao salvar)
+        # 3) FORMULÁRIO (limpa depois de salvar)
         # -------------------------------------------
         with st.form("novo_lancamento", clear_on_submit=True):
         
@@ -601,37 +592,30 @@ def main():
                 category = cat_choice
         
             # Data
-            d = st.date_input(
-                "Data",
-                value=today,
-                format="DD/MM/YYYY",
-            )
+            d = st.date_input("Data", value=today, format="DD/MM/YYYY")
         
-            # Valor (sempre aparece, independente da forma)
-            valor_str = st.text_input(
-                "Valor (R$)",
-                value="",
-                placeholder="0,00",
-            )
+            # Valor (sempre aparece)
+            valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
         
-            # Linha com Parcelas + Cartão (sempre visíveis, mas podem estar desabilitados)
-            col_parc, col_card = st.columns([1, 2])
+            # -------------------------------------------
+            # Campos de cartão — SÓ aparecem se for saída + cartão
+            # -------------------------------------------
+            if show_card_fields:
+                col_parc, col_card = st.columns([1, 2])
         
-            with col_parc:
-                installments = st.number_input(
-                    "Parcelas",
-                    min_value=1,
-                    value=1,
-                    step=1,
-                    disabled=not is_card,   # habilita só quando for cartão
-                )
+                with col_parc:
+                    installments = st.number_input(
+                        "Parcelas",
+                        min_value=1,
+                        value=1,
+                        step=1,
+                    )
         
-            with col_card:
-                card_name = st.text_input(
-                    "Cartão",
-                    value="",
-                    disabled=not is_card,   # habilita só quando for cartão
-                )
+                with col_card:
+                    card_name = st.text_input("Cartão")
+            else:
+                installments = 1
+                card_name = ""
         
             # Descrição
             description = st.text_area("Descrição (opcional)")
@@ -640,18 +624,10 @@ def main():
             submitted = st.form_submit_button("Salvar lançamento", use_container_width=True)
         
         # -------------------------------------------
-        # 4) PROCESSAMENTO
+        # PROCESSAMENTO DO ENVIO
         # -------------------------------------------
         if submitted:
             amount = parse_brl_to_float(valor_str)
-        
-            # Se não for cartão de crédito, ignoramos parcelas/cartão
-            if not is_card:
-                installments_to_save = 1
-                card_name_to_save = ""
-            else:
-                installments_to_save = int(installments)
-                card_name_to_save = card_name.strip()
         
             if amount > 0 and category.strip():
                 insert_transaction(
@@ -661,17 +637,14 @@ def main():
                     d,
                     amount,
                     payment_type,
-                    card_name_to_save,
-                    installments_to_save,
+                    card_name,
+                    installments,
                     description,
                 )
                 st.success("Lançamento salvo com sucesso!")
                 st.rerun()
             else:
                 st.error("Preencha categoria e valor maior que zero.")
-        
-
-# ----------------------------------------------------------------------------------
 
     if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
