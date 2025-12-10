@@ -541,12 +541,11 @@ def main():
         ]
     
         # --- NOVO LANÇAMENTO ---
-   
         st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
         st.subheader("Novo lançamento")
         
         # -------------------------------------------
-        # Tipo (fora do form, para atualizar dinamicamente)
+        # 1) Tipo (fora do form, para ser reativo)
         # -------------------------------------------
         t_type = st.radio(
             "Tipo",
@@ -554,7 +553,7 @@ def main():
             horizontal=True,
         )
         
-        # Separador visual
+        # Espaço + divisor
         st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
         st.markdown(
             "<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>",
@@ -562,11 +561,33 @@ def main():
         )
         
         # -------------------------------------------
-        # Formulário (limpa após submit)
+        # 2) Forma de pagamento (fora do form, reativo)
+        #    Só aparece para SAÍDA
+        # -------------------------------------------
+        if t_type == "saida":
+            payment_type = st.selectbox(
+                "Forma de pagamento",
+                ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
+            )
+        else:
+            payment_type = "Conta"
+        
+        # indicador se é cartão de crédito
+        is_card = (t_type == "saida" and payment_type == "Cartão de crédito")
+        
+        # Outro divisor antes do formulário
+        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>",
+            unsafe_allow_html=True,
+        )
+        
+        # -------------------------------------------
+        # 3) FORMULÁRIO (limpa ao salvar)
         # -------------------------------------------
         with st.form("novo_lancamento", clear_on_submit=True):
         
-            # Categorias dinâmicas (agora funcionam!)
+            # Categorias dinâmicas
             if t_type == "entrada":
                 cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
             elif t_type == "saida":
@@ -586,53 +607,51 @@ def main():
                 format="DD/MM/YYYY",
             )
         
-            # Forma de pagamento
-            if t_type == "saida":
-                payment_type = st.selectbox(
-                    "Forma de pagamento",
-                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
+            # Valor (sempre aparece, independente da forma)
+            valor_str = st.text_input(
+                "Valor (R$)",
+                value="",
+                placeholder="0,00",
+            )
+        
+            # Linha com Parcelas + Cartão (sempre visíveis, mas podem estar desabilitados)
+            col_parc, col_card = st.columns([1, 2])
+        
+            with col_parc:
+                installments = st.number_input(
+                    "Parcelas",
+                    min_value=1,
+                    value=1,
+                    step=1,
+                    disabled=not is_card,   # habilita só quando for cartão
                 )
-            else:
-                payment_type = "Conta"
         
-            # Valor + Parcelas (dinâmico)
-            card_name = ""
-            installments = 1
-        
-            if t_type == "saida" and payment_type == "Cartão de crédito":
-                col_valor, col_parc = st.columns([2, 1])
-        
-                with col_valor:
-                    valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
-        
-                with col_parc:
-                    installments = st.number_input(
-                        "Parcelas",
-                        min_value=1,
-                        value=1,
-                        step=1,
-                    )
-        
-                card_name = st.text_input("Cartão")
-        
-            else:
-                valor_str = st.text_input(
-                    "Valor (R$)",
+            with col_card:
+                card_name = st.text_input(
+                    "Cartão",
                     value="",
-                    placeholder="0,00",
+                    disabled=not is_card,   # habilita só quando for cartão
                 )
         
             # Descrição
             description = st.text_area("Descrição (opcional)")
         
-            # Botão
+            # Botão do form
             submitted = st.form_submit_button("Salvar lançamento", use_container_width=True)
         
         # -------------------------------------------
-        # PROCESSAMENTO
+        # 4) PROCESSAMENTO
         # -------------------------------------------
         if submitted:
             amount = parse_brl_to_float(valor_str)
+        
+            # Se não for cartão de crédito, ignoramos parcelas/cartão
+            if not is_card:
+                installments_to_save = 1
+                card_name_to_save = ""
+            else:
+                installments_to_save = int(installments)
+                card_name_to_save = card_name.strip()
         
             if amount > 0 and category.strip():
                 insert_transaction(
@@ -642,16 +661,15 @@ def main():
                     d,
                     amount,
                     payment_type,
-                    card_name,
-                    installments,
+                    card_name_to_save,
+                    installments_to_save,
                     description,
                 )
-        
                 st.success("Lançamento salvo com sucesso!")
                 st.rerun()
-        
             else:
                 st.error("Preencha categoria e valor maior que zero.")
+        
 
 # ----------------------------------------------------------------------------------
 
