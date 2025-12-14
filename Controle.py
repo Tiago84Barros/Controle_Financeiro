@@ -350,68 +350,115 @@ def parse_brl_to_float(valor_str: str) -> float:
 # ---------- Estilo visual ----------
 
 def apply_custom_style():
-    # ---------- CSS ----------
     st.markdown(
         """
         <style>
-        /* Remove branding do Streamlit */
-        #MainMenu { visibility: hidden; }
-        footer { visibility: hidden; }
-        header { visibility: hidden; }
-        [data-testid="stToolbar"] { display: none; }
-
-        /* Logo flutuante */
-        .logo-flutuante {
-            position: fixed;
-            bottom: 16px;
-            right: 16px;
-            z-index: 9999;
-            background: rgba(2, 6, 23, 0.85);
-            border-radius: 14px;
-            padding: 8px 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        * {
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
-        .logo-flutuante img {
-            height: 34px;
-            width: auto;
-        }
-
-        .logo-flutuante span {
-            font-size: 0.75rem;
+        /* Fundo geral */
+        .stApp {
+            background: radial-gradient(circle at top left, #0f172a 0, #020617 45%, #020617 100%);
             color: #e5e7eb;
-            white-space: nowrap;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        /* Header */
+        .cf-header {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding: 0.5rem 0.25rem 0.75rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        .cf-title {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .cf-subtitle {
+            font-size: 0.9rem;
+            color: #9ca3af;
+            margin-top: 0.15rem;
+        }
+
+        .cf-subtitle strong {
+            color: #e5e7eb;
+        }
+
+        .cf-pill {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.22);
+            color: #e5e7eb;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+
+        /* Cards de resumo */
+        .cf-card {
+            width: 100%;
+            min-width: 0;
+            border-radius: 0.9rem;
+            padding: 0.9rem 1rem;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: radial-gradient(
+                circle at top left,
+                rgba(148, 163, 184, 0.15),
+                rgba(15, 23, 42, 0.9)
+            );
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(8px);
+        }
+
+        .cf-card-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-bottom: 0.3rem;
+        }
+
+        .cf-card-value {
+            font-size: 1.45rem;
+            font-weight: 600;
+        }
+
+        .cf-card-extra {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        .cf-card-income .cf-card-value {
+            color: #4ade80;
+        }
+
+        .cf-card-expense .cf-card-value {
+            color: #f97373;
+        }
+
+        .cf-card-balance-positive .cf-card-value {
+            color: #22c55e;
+        }
+
+        .cf-card-balance-negative .cf-card-value {
+            color: #fb7185;
+        }
+
+        .cf-card-ratio .cf-card-value {
+            color: #60a5fa;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
-    # ---------- HTML DO LOGO ----------
-    st.markdown(
-        """
-        <div class="logo-flutuante">
-            <img src="https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/assets/logo.png">
-            <span>Controle Financeiro</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ---------- HTML DO LOGO ----------
-    st.markdown(
-        """
-        <div class="logo-flutuante">
-            <img src="https://SEU_LINK_DO_LOGO_AQUI.png">
-            <span>Controle Financeiro</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
 
 
 # ---------- App Streamlit ----------
