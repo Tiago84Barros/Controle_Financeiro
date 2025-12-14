@@ -442,6 +442,23 @@ def apply_custom_style():
         unsafe_allow_html=True,
     )
 
+    st.markdown(
+        """
+        <style>
+        /* Remove menu e rodapé do Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+    
+        /* Remove o botão flutuante da Streamlit Cloud */
+        [data-testid="stToolbar"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 # ---------- App Streamlit ----------
 
 def main():
