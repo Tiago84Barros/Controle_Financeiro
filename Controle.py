@@ -440,24 +440,71 @@ def apply_custom_style():
         </style>
         """,
         unsafe_allow_html=True,
-    )
 
-    st.markdown(
-        """
-        <style>
-        /* Remove menu e rodapé do Streamlit */
+        /* Remove branding e botões do Streamlit */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-    
-        /* Remove o botão flutuante da Streamlit Cloud */
+        
         [data-testid="stToolbar"] {
             display: none;
         }
+    )
+
+    def apply_custom_style():
+    # ---------- CSS ----------
+    st.markdown(
+        """
+        <style>
+        /* SEU CSS ATUAL */
+        * { max-width: 100%; box-sizing: border-box; }
+
+        /* Remove branding Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        [data-testid="stToolbar"] { display: none; }
+
+        /* Logo flutuante */
+        .logo-flutuante {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            z-index: 9999;
+            background: rgba(2, 6, 23, 0.85);
+            border-radius: 14px;
+            padding: 8px 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-flutuante img {
+            height: 34px;
+        }
+
+        .logo-flutuante span {
+            font-size: 0.75rem;
+            color: #e5e7eb;
+        }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
+
+    # ---------- HTML DO LOGO ----------
+    st.markdown(
+        """
+        <div class="logo-flutuante">
+            <img src="https://SEU_LINK_DO_LOGO_AQUI.png">
+            <span>Controle Financeiro</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 
 # ---------- App Streamlit ----------
 
