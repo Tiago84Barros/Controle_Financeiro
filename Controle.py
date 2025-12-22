@@ -271,9 +271,7 @@ def compute_summary(df, ref_date):
     total_entrada = df_month.loc[df_month["type"] == "entrada", "amount"].sum()
 
     # saídas que realmente saem da conta (não cartão)
-    mask_saidas_caixa = (df_month["type"] == "saida") & (
-        df_month["payment_type"] != "Cartão de crédito"
-    )
+    mask_saidas_caixa = (df_month["type"] == "saida") 
     total_saida = df_month.loc[mask_saidas_caixa, "amount"].sum()
 
     total_investimento = df_month.loc[df_month["type"] == "investimento", "amount"].sum()
