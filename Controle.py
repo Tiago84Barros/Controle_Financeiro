@@ -271,7 +271,9 @@ def compute_summary(df, ref_date):
     total_entrada = df_month.loc[df_month["type"] == "entrada", "amount"].sum()
 
     # saídas que realmente saem da conta (não cartão)
-    mask_saidas_caixa = (df_month["type"] == "saida") 
+    mask_saidas_caixa = (df_month["type"] == "saida") & (
+        df_month["payment_type"] != "Cartão de crédito"
+    )
     total_saida = df_month.loc[mask_saidas_caixa, "amount"].sum()
 
     total_investimento = df_month.loc[df_month["type"] == "investimento", "amount"].sum()
@@ -283,10 +285,9 @@ def compute_summary(df, ref_date):
     comprometido = total_saida + total_investimento
     perc_comprometido = (comprometido / total_entrada * 100) if total_entrada > 0 else 0
 
-    # Despesas por categoria no mês (mantém como antes: TODAS as saídas,
-    # incluindo cartão, para você ver o "peso" real das categorias)
+    # Despesas por categoria no mês (somente saída de fluxo)
     df_cat = (
-        df_month[df_month["type"] == "saida"]
+        df_month[mask_saidas_caixa]
         .groupby("category")["amount"]
         .sum()
         .reset_index()
