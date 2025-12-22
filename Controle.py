@@ -299,6 +299,9 @@ def compute_summary(df, ref_date):
     mask_hist = (df["date"] >= six_months_ago) & (df["date"] <= last_day)
     df_hist = df[mask_hist].copy()
     if not df_hist.empty:
+        mask_cc_hist = (df_hist["type"] == "saida") & (df_hist["payment_type"] == "Cartão de crédito")
+        df_hist = df_hist[~mask_cc_hist]
+    if not df_hist.empty:
         df_hist["ym"] = df_hist["date"].apply(lambda d: d.replace(day=1))
         df_hist = df_hist.groupby(["ym", "type"])["amount"].sum().reset_index()
         df_hist_pivot = df_hist.pivot(index="ym", columns="type", values="amount").fillna(0)
