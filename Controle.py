@@ -1125,7 +1125,7 @@ def render_analises(df):
     df_cc = df_temp[
         (df_temp["type"] == "saida") & (
             (df_temp["payment_type"] == "Conta") |
-            (df_temp["category_norm"] == "pagamento de cartão")
+            (df_temp["category_norm"] == "Pagamento de Cartão")
         )
     ].copy()
 
