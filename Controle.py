@@ -822,40 +822,48 @@ def main():
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas x Investimentos)")
     
         if not df_hist.empty:
-            # df_hist é um pivot com index = ym (primeiro dia do mês) e colunas = tipos
+            # df_hist: pivot com index = mês (ym) e colunas = tipos/nomes
             df_hist_chart = df_hist.copy()
     
-            # ✅ garante que o índice é datetime e ordena cronologicamente
+            # 1) índice como datetime e ordenado
             df_hist_chart.index = pd.to_datetime(df_hist_chart.index)
             df_hist_chart = df_hist_chart.sort_index()
     
-            # ✅ renomeia coluna de investimento para nome amigável (se existir)
-            if "investimento" in df_hist_chart.columns:
-                df_hist_chart = df_hist_chart.rename(columns={"investimento": "Investimentos"})
-    
-            # ✅ converte para formato longo para o Altair
+            # 2) traz o índice para coluna 'ym'
             df_hist_chart = df_hist_chart.reset_index()
-            # após reset_index, a coluna pode virar "index" dependendo do pandas
             if "index" in df_hist_chart.columns and "ym" not in df_hist_chart.columns:
                 df_hist_chart = df_hist_chart.rename(columns={"index": "ym"})
             elif "ym" not in df_hist_chart.columns:
-                # fallback defensivo (não costuma ser necessário)
                 df_hist_chart = df_hist_chart.rename(columns={df_hist_chart.columns[0]: "ym"})
     
+            # 3) normaliza para "início do mês" (robusto para virar ano etc.)
+            df_hist_chart["ym"] = pd.to_datetime(df_hist_chart["ym"]).dt.to_period("M").dt.to_timestamp()
+    
+            # 4) melt para formato longo
             df_long = df_hist_chart.melt(
                 id_vars="ym",
                 var_name="Tipo",
                 value_name="Valor"
             )
     
-            # ✅ garante que o eixo X é temporal
-            df_long["ym"] = pd.to_datetime(df_long["ym"])
+            # 5) (defensivo) garante 1 ponto por mês/tipo
+            df_long = (
+                df_long.groupby(["ym", "Tipo"], as_index=False)["Valor"]
+                .sum()
+            )
+    
+            # 6) força o eixo X a mostrar exatamente os meses presentes (inclui 01/26)
+            meses = sorted(df_long["ym"].unique().tolist())
     
             chart_hist = (
                 alt.Chart(df_long)
                 .mark_line(point=True)
                 .encode(
-                    x=alt.X("ym:T", title="Mês", axis=alt.Axis(format="%m/%y")),
+                    x=alt.X(
+                        "ym:T",
+                        title="Mês",
+                        axis=alt.Axis(format="%m/%y", values=meses),
+                    ),
                     y=alt.Y("Valor:Q", title="Valor (R$)"),
                     color=alt.Color("Tipo:N", title="Tipo"),
                     tooltip=[
@@ -864,34 +872,13 @@ def main():
                         alt.Tooltip("Valor:Q", title="Valor", format=",.2f"),
                     ],
                 )
-                .properties(
-                    width="container",
-                    height=320
-                )
+                .properties(width="container", height=320)
             )
     
             st.altair_chart(chart_hist, use_container_width=True)
     
-            # ✅ tabela formatada (mantém a visualização como você já fazia)
-            df_hist_tab = df_hist.copy()
-            df_hist_tab.index = pd.to_datetime(df_hist_tab.index)
-            df_hist_tab = df_hist_tab.sort_index()
-    
-            df_hist_fmt = df_hist_tab.copy()
-            for col in df_hist_fmt.columns:
-                df_hist_fmt[col] = df_hist_fmt[col].apply(
-                    lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-    
-            df_hist_fmt = df_hist_fmt.rename_axis("Mês").reset_index()
-            # formata mês na tabela como MM/AA
-            df_hist_fmt["Mês"] = pd.to_datetime(df_hist_fmt["Mês"]).dt.strftime("%m/%y")
-    
-            st.dataframe(df_hist_fmt, use_container_width=True)
-    
         else:
             st.info("Ainda não há dados suficientes para histórico.")
-
 
             
         st.markdown("---")
