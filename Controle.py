@@ -822,37 +822,36 @@ def main():
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas x Investimentos)")
     
         if not df_hist.empty:
-            # df_hist: pivot com index = mês (ym) e colunas = tipos/nomes
+            # =========================
+            # 1) GRÁFICO (robusto)
+            # =========================
             df_hist_chart = df_hist.copy()
     
-            # 1) índice como datetime e ordenado
+            # índice como datetime e ordenado
             df_hist_chart.index = pd.to_datetime(df_hist_chart.index)
             df_hist_chart = df_hist_chart.sort_index()
     
-            # 2) traz o índice para coluna 'ym'
+            # traz o índice para coluna 'ym'
             df_hist_chart = df_hist_chart.reset_index()
             if "index" in df_hist_chart.columns and "ym" not in df_hist_chart.columns:
                 df_hist_chart = df_hist_chart.rename(columns={"index": "ym"})
             elif "ym" not in df_hist_chart.columns:
                 df_hist_chart = df_hist_chart.rename(columns={df_hist_chart.columns[0]: "ym"})
     
-            # 3) normaliza para "início do mês" (robusto para virar ano etc.)
+            # normaliza para início do mês
             df_hist_chart["ym"] = pd.to_datetime(df_hist_chart["ym"]).dt.to_period("M").dt.to_timestamp()
     
-            # 4) melt para formato longo
+            # long format
             df_long = df_hist_chart.melt(
                 id_vars="ym",
                 var_name="Tipo",
                 value_name="Valor"
             )
     
-            # 5) (defensivo) garante 1 ponto por mês/tipo
-            df_long = (
-                df_long.groupby(["ym", "Tipo"], as_index=False)["Valor"]
-                .sum()
-            )
+            # defensivo: 1 ponto por mês/tipo
+            df_long = df_long.groupby(["ym", "Tipo"], as_index=False)["Valor"].sum()
     
-            # 6) força o eixo X a mostrar exatamente os meses presentes (inclui 01/26)
+            # força ticks do eixo a serem exatamente os meses existentes
             meses = sorted(df_long["ym"].unique().tolist())
     
             chart_hist = (
@@ -870,15 +869,6 @@ def main():
                         alt.Tooltip("ym:T", title="Mês", format="%m/%y"),
                         alt.Tooltip("Tipo:N", title="Tipo"),
                         alt.Tooltip("Valor:Q", title="Valor", format=",.2f"),
-                    ],
-                )
-                .properties(width="container", height=320)
-            )
-    
-            st.altair_chart(chart_hist, use_container_width=True)
-    
-        else:
-            st.info("Ainda não há dados suficientes para histórico.")
 
             
         st.markdown("---")
