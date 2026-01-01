@@ -305,8 +305,6 @@ def compute_summary(df, ref_date):
         df_hist["ym"] = df_hist["date"].apply(lambda d: d.replace(day=1))
         df_hist = df_hist.groupby(["ym", "type"])["amount"].sum().reset_index()
         df_hist_pivot = df_hist.pivot(index="ym", columns="type", values="amount").fillna(0)
-        # ✅ ORDENA CRONOLOGICAMENTE (ESSENCIAL)
-        df_hist_pivot = df_hist_pivot.sort_index()
         df_hist_pivot = df_hist_pivot.rename(columns={"entrada": "Receitas", "saida": "Despesas"})
         df_hist_pivot = df_hist_pivot.sort_index()
     else:
@@ -828,7 +826,11 @@ def main():
     
             # Garante datetime e cria label de mês
             df_hist_chart.index = pd.to_datetime(df_hist_chart.index)
-            df_hist_chart["mes"] = df_hist_chart.index.strftime("%m/%y")
+            df_hist_chart = df_hist_chart.sort_index()
+
+            # ✅ cria coluna temporal (datetime) para o eixo X
+            df_hist_chart = df_hist_chart.reset_index().rename(columns={"ym": "ym"})  # se seu index já for o ym
+            #df_hist_chart["mes"] = df_hist_chart.index.strftime("%m/%y")
     
             # Renomeia a coluna de investimento para um nome mais amigável
             if "investimento" in df_hist_chart.columns:
