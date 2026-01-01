@@ -770,8 +770,7 @@ def main():
             # -------- Gráfico em barras (vermelho) --------
             df_cat_chart = df_cat.set_index("category")
     
-            import altair as alt
-    
+          
             chart = (
                 alt.Chart(df_cat_chart.reset_index())
                 .mark_bar(color="#ff4d4d")  # barras vermelhas
