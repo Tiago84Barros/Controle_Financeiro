@@ -869,6 +869,36 @@ def main():
                         alt.Tooltip("ym:T", title="Mês", format="%m/%y"),
                         alt.Tooltip("Tipo:N", title="Tipo"),
                         alt.Tooltip("Valor:Q", title="Valor", format=",.2f"),
+                    ],
+                )
+                .properties(width="container", height=320)
+            )
+    
+            st.altair_chart(chart_hist, use_container_width=True)
+    
+            # =========================
+            # 2) TABELA RESUMO (de volta)
+            # =========================
+            df_table = df_hist.copy()
+            df_table.index = pd.to_datetime(df_table.index)
+            df_table = df_table.sort_index()
+    
+            df_table_fmt = df_table.copy()
+    
+            # formata valores como BRL
+            for col in df_table_fmt.columns:
+                df_table_fmt[col] = df_table_fmt[col].apply(
+                    lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                )
+    
+            # coluna Mês mm/aa
+            df_table_fmt = df_table_fmt.rename_axis("Mês").reset_index()
+            df_table_fmt["Mês"] = pd.to_datetime(df_table_fmt["Mês"]).dt.strftime("%m/%y")
+    
+            st.dataframe(df_table_fmt, use_container_width=True, hide_index=True)
+    
+        else:
+            st.info("Ainda não há dados suficientes para histórico.")
 
             
         st.markdown("---")
