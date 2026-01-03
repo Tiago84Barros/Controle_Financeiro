@@ -823,16 +823,40 @@ def main():
     
         if not df_hist.empty:
             # =========================
-            # 1) GRÁFICO (robusto)
+            # 0) NORMALIZA O PIVOT (ROBUSTO)
             # =========================
-            df_hist_chart = df_hist.copy()
+            df_pivot = df_hist.copy()
+            df_pivot.index = pd.to_datetime(df_pivot.index)
+            df_pivot = df_pivot.sort_index()
     
-            # índice como datetime e ordenado
-            df_hist_chart.index = pd.to_datetime(df_hist_chart.index)
-            df_hist_chart = df_hist_chart.sort_index()
+            # padroniza nomes vindos do pivot: entrada/saida/investimento -> Receitas/Despesas/Investimentos
+            df_pivot = df_pivot.rename(columns={
+                "entrada": "Receitas",
+                "saida": "Despesas",
+                "investimento": "Investimentos",
+            })
     
-            # traz o índice para coluna 'ym'
-            df_hist_chart = df_hist_chart.reset_index()
+            # garante que as 3 colunas existam SEMPRE (mesmo que não haja dados no período)
+            for col in ["Receitas", "Despesas", "Investimentos"]:
+                if col not in df_pivot.columns:
+                    df_pivot[col] = 0.0
+    
+            # garante numérico e sem NaN
+            df_pivot[["Receitas", "Despesas", "Investimentos"]] = (
+                df_pivot[["Receitas", "Despesas", "Investimentos"]]
+                .apply(pd.to_numeric, errors="coerce")
+                .fillna(0.0)
+            )
+    
+            # mantém só as colunas do gráfico/tabela, na ordem desejada
+            df_pivot = df_pivot[["Receitas", "Despesas", "Investimentos"]]
+    
+            # =========================
+            # 1) GRÁFICO
+            # =========================
+            df_hist_chart = df_pivot.reset_index()
+    
+            # após reset_index, a coluna do índice pode ser "index" ou manter o nome
             if "index" in df_hist_chart.columns and "ym" not in df_hist_chart.columns:
                 df_hist_chart = df_hist_chart.rename(columns={"index": "ym"})
             elif "ym" not in df_hist_chart.columns:
@@ -841,35 +865,32 @@ def main():
             # normaliza para início do mês
             df_hist_chart["ym"] = pd.to_datetime(df_hist_chart["ym"]).dt.to_period("M").dt.to_timestamp()
     
-            # long format
             df_long = df_hist_chart.melt(
                 id_vars="ym",
                 var_name="Tipo",
                 value_name="Valor"
             )
     
-            # defensivo: 1 ponto por mês/tipo
+            df_long["Valor"] = pd.to_numeric(df_long["Valor"], errors="coerce").fillna(0.0)
+    
+            # 1 ponto por mês/tipo
             df_long = df_long.groupby(["ym", "Tipo"], as_index=False)["Valor"].sum()
     
-            # força ticks do eixo a serem exatamente os meses existentes
+            # ticks exatamente nos meses existentes
             meses = sorted(df_long["ym"].unique().tolist())
     
             chart_hist = (
                 alt.Chart(df_long)
                 .mark_line(point=True)
                 .encode(
-                    x=alt.X(
-                        "ym:T",
-                        title="Mês",
-                        axis=alt.Axis(format="%m/%y", values=meses),
-                    ),
+                    x=alt.X("ym:T", title="Mês", axis=alt.Axis(format="%m/%y", values=meses)),
                     y=alt.Y("Valor:Q", title="Valor (R$)"),
                     color=alt.Color(
                         "Tipo:N",
                         title="Tipo",
                         scale=alt.Scale(
                             domain=["Receitas", "Despesas", "Investimentos"],
-                            range=["#22c55e", "#ef4444", "#3b82f6"]  # verde, vermelho, azul
+                            range=["#22c55e", "#ef4444", "#3b82f6"]
                         ),
                     ),
                     tooltip=[
@@ -884,21 +905,15 @@ def main():
             st.altair_chart(chart_hist, use_container_width=True)
     
             # =========================
-            # 2) TABELA RESUMO (de volta)
+            # 2) TABELA RESUMO (MESMO PIVOT NORMALIZADO)
             # =========================
-            df_table = df_hist.copy()
-            df_table.index = pd.to_datetime(df_table.index)
-            df_table = df_table.sort_index()
+            df_table_fmt = df_pivot.copy()
     
-            df_table_fmt = df_table.copy()
-    
-            # formata valores como BRL
             for col in df_table_fmt.columns:
                 df_table_fmt[col] = df_table_fmt[col].apply(
                     lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                 )
     
-            # coluna Mês mm/aa
             df_table_fmt = df_table_fmt.rename_axis("Mês").reset_index()
             df_table_fmt["Mês"] = pd.to_datetime(df_table_fmt["Mês"]).dt.strftime("%m/%y")
     
@@ -906,6 +921,7 @@ def main():
     
         else:
             st.info("Ainda não há dados suficientes para histórico.")
+
 
             
         st.markdown("---")
