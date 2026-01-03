@@ -1,4 +1,4 @@
-import streamlit as st
+fimport streamlit as st
 import psycopg2
 from datetime import date
 import altair as alt
@@ -864,7 +864,14 @@ def main():
                         axis=alt.Axis(format="%m/%y", values=meses),
                     ),
                     y=alt.Y("Valor:Q", title="Valor (R$)"),
-                    color=alt.Color("Tipo:N", title="Tipo"),
+                    color=alt.Color(
+                        "Tipo:N",
+                        title="Tipo",
+                        scale=alt.Scale(
+                            domain=["Receitas", "Despesas", "Investimentos"],
+                            range=["#22c55e", "#ef4444", "#3b82f6"]  # verde, vermelho, azul
+                        ),
+                    ),
                     tooltip=[
                         alt.Tooltip("ym:T", title="Mês", format="%m/%y"),
                         alt.Tooltip("Tipo:N", title="Tipo"),
