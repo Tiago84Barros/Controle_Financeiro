@@ -467,13 +467,7 @@ def apply_custom_style():
 
 def main():
     # você já chamou st.set_page_config lá em cima do arquivo;
-    # aqui pode até remover para evitar aviso de "set_page_config só 1 vez"
-    st.set_page_config(
-        page_title="Dashboard Financeiro",
-        page_icon="💰",
-        layout="wide",
-    )
-
+  
     apply_custom_style()
     init_db()
 
@@ -1115,9 +1109,9 @@ def render_analises(df):
     })
 
     # Formatação moeda
-    tabela_fmt = tabela_yoy.applymap(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-    st.dataframe(tabela_fmt, use_container_width=True)
+    tabela_fmt = tabela_yoy.apply(lambda col: col.map(format_brl))
+    
+    st.dataframe(tabela_fmt, use_container_width=True)True)
 
    # Gráfico YOY (agrupado e responsivo)
     chart_yoy = (
