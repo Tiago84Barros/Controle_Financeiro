@@ -1111,9 +1111,9 @@ def render_analises(df):
     # Formatação moeda
     tabela_fmt = tabela_yoy.apply(lambda col: col.map(format_brl))
     
-    st.dataframe(tabela_fmt, use_container_width=True)True)
+    st.dataframe(tabela_fmt, use_container_width=True)
 
-   # Gráfico YOY (agrupado e responsivo)
+    # Gráfico YOY (agrupado e responsivo)
     chart_yoy = (
         alt.Chart(df_yoy)
         .mark_bar()
