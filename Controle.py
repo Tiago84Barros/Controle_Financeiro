@@ -467,6 +467,10 @@ def apply_custom_style():
 
 def main():
     # você já chamou st.set_page_config lá em cima do arquivo;
+    st.set_page_config(
+        page_title="Controle Financeiro",
+        page_icon="💰",
+    )
   
     apply_custom_style()
     init_db()
