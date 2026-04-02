@@ -149,8 +149,9 @@ def create_user(email: str, password: str):
 def login_screen():
     """Tela de login com opção de criar novo usuário."""
     
-    # A PARTIR DAQUI É A TELA DE LOGIN DE VERDADE
-    st.title("🔐 Acesso ao seu Controle Financeiro")
+    # Mostrar título apenas quando o usuário NÃO estiver logado
+    if "user" not in st.session_state or not st.session_state["user"]:
+        st.title("🔐 Acesso ao seu Controle Financeiro")
 
     # Se já está logado:
     if "user" in st.session_state and st.session_state["user"]:
@@ -251,6 +252,28 @@ def get_month_range(target_date=None):
     last_day = next_month - relativedelta(days=1)
     return first_day, last_day
 
+
+def build_month_options(df: pd.DataFrame, months_back: int = 23):
+    """
+    Retorna opções únicas de mês/ano para o seletor, no formato MM/AAAA.
+    Inclui meses dos dados + janela recente, em ordem decrescente.
+    """
+    today = date.today().replace(day=1)
+    months = {today - relativedelta(months=i) for i in range(months_back + 1)}
+
+    if df is not None and not df.empty and "date" in df.columns:
+        datas = pd.to_datetime(df["date"], errors="coerce").dropna()
+        for d in datas:
+            months.add(d.date().replace(day=1))
+
+    ordered = sorted(months, reverse=True)
+    return ordered
+
+
+def parse_month_option(option: str):
+    mes, ano = option.split("/")
+    return date(int(ano), int(mes), 1)
+
 def compute_summary(df, ref_date):
     if df.empty:
         return {
@@ -265,20 +288,30 @@ def compute_summary(df, ref_date):
     mask_month = (df["date"] >= first_day) & (df["date"] <= last_day)
     df_month = df[mask_month].copy()
 
+    # ✅ Fluxo de caixa considera APENAS o que mexe na conta
+    #    - entradas: todas
+    #    - saídas: exceto cartão de crédito (gasto futuro)
+    #    - investimentos: todos (saem da conta)
     total_entrada = df_month.loc[df_month["type"] == "entrada", "amount"].sum()
-    total_saida = df_month.loc[df_month["type"] == "saida", "amount"].sum()
+
+    # saídas que realmente saem da conta (não cartão)
+    mask_saidas_caixa = (df_month["type"] == "saida") & (
+        df_month["payment_type"] != "Cartão de crédito"
+    )
+    total_saida = df_month.loc[mask_saidas_caixa, "amount"].sum()
+
     total_investimento = df_month.loc[df_month["type"] == "investimento", "amount"].sum()
 
-    # 🔹 saldo líquido: entradas - saídas - investimentos
+    # 🔹 saldo líquido: entradas - saídas (que afetam caixa) - investimentos
     saldo = total_entrada - total_saida - total_investimento
 
-    # 🔹 renda comprometida: saídas + investimentos
+    # 🔹 renda comprometida: saídas (que afetam caixa) + investimentos
     comprometido = total_saida + total_investimento
     perc_comprometido = (comprometido / total_entrada * 100) if total_entrada > 0 else 0
 
-    # Despesas por categoria no mês (só saídas, como antes)
+    # Despesas por categoria no mês (somente saída de fluxo)
     df_cat = (
-        df_month[df_month["type"] == "saida"]
+        df_month[mask_saidas_caixa]
         .groupby("category")["amount"]
         .sum()
         .reset_index()
@@ -289,6 +322,9 @@ def compute_summary(df, ref_date):
     six_months_ago = first_day - relativedelta(months=5)
     mask_hist = (df["date"] >= six_months_ago) & (df["date"] <= last_day)
     df_hist = df[mask_hist].copy()
+    if not df_hist.empty:
+        mask_cc_hist = (df_hist["type"] == "saida") & (df_hist["payment_type"] == "Cartão de crédito")
+        df_hist = df_hist[~mask_cc_hist]
     if not df_hist.empty:
         df_hist["ym"] = df_hist["date"].apply(lambda d: d.replace(day=1))
         df_hist = df_hist.groupby(["ym", "type"])["amount"].sum().reset_index()
@@ -337,8 +373,6 @@ def parse_brl_to_float(valor_str: str) -> float:
     except ValueError:
         return 0.0
 
-
-
 # ---------- Estilo visual ----------
 
 def apply_custom_style():
@@ -349,12 +383,30 @@ def apply_custom_style():
             max-width: 100%;
             box-sizing: border-box;
         }
+
+        .block-container {
+            max-width: 100% !important;
+            padding-top: 1.2rem;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        section[data-testid="stSidebar"] {
+            min-width: 290px;
+        }
+
+        [data-testid="stHorizontalBlock"] {
+            align-items: stretch;
+        }
+
         /* Fundo geral */
         .stApp {
             background: radial-gradient(circle at top left, #0f172a 0, #020617 45%, #020617 100%);
             color: #e5e7eb;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
+
         /* Header */
         .cf-header {
             display: flex;
@@ -365,19 +417,23 @@ def apply_custom_style():
             padding: 0.5rem 0.25rem 0.75rem;
             border-bottom: 1px solid rgba(148, 163, 184, 0.3);
         }
+
         .cf-title {
             font-size: 1.6rem;
             font-weight: 600;
             margin: 0;
         }
+
         .cf-subtitle {
             font-size: 0.9rem;
             color: #9ca3af;
             margin-top: 0.15rem;
         }
+
         .cf-subtitle strong {
             color: #e5e7eb;
         }
+
         .cf-pill {
             font-size: 0.8rem;
             padding: 0.25rem 0.6rem;
@@ -394,10 +450,15 @@ def apply_custom_style():
             border-radius: 0.9rem;
             padding: 0.9rem 1rem;
             border: 1px solid rgba(148, 163, 184, 0.25);
-            background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.15), rgba(15, 23, 42, 0.9));
+            background: radial-gradient(
+                circle at top left,
+                rgba(148, 163, 184, 0.15),
+                rgba(15, 23, 42, 0.9)
+            );
             box-shadow: 0 18px 45px rgba(15, 23, 42, 0.65);
             backdrop-filter: blur(8px);
         }
+
         .cf-card-label {
             font-size: 0.78rem;
             text-transform: uppercase;
@@ -405,27 +466,34 @@ def apply_custom_style():
             color: #9ca3af;
             margin-bottom: 0.3rem;
         }
+
         .cf-card-value {
             font-size: 1.45rem;
             font-weight: 600;
         }
+
         .cf-card-extra {
             font-size: 0.75rem;
             color: #9ca3af;
             margin-top: 0.25rem;
         }
+
         .cf-card-income .cf-card-value {
             color: #4ade80;
         }
+
         .cf-card-expense .cf-card-value {
             color: #f97373;
         }
+
         .cf-card-balance-positive .cf-card-value {
             color: #22c55e;
         }
+
         .cf-card-balance-negative .cf-card-value {
             color: #fb7185;
         }
+
         .cf-card-ratio .cf-card-value {
             color: #60a5fa;
         }
@@ -434,17 +502,10 @@ def apply_custom_style():
         unsafe_allow_html=True,
     )
 
+
 # ---------- App Streamlit ----------
 
 def main():
-    # você já chamou st.set_page_config lá em cima do arquivo;
-    # aqui pode até remover para evitar aviso de "set_page_config só 1 vez"
-    st.set_page_config(
-        page_title="Dashboard Financeiro",
-        page_icon="💰",
-        layout="wide",
-    )
-
     apply_custom_style()
     init_db()
 
@@ -489,34 +550,17 @@ def main():
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
+        month_options_dates = build_month_options(df)
+        month_options_labels = [d.strftime("%m/%Y") for d in month_options_dates]
+        default_label = today.replace(day=1).strftime("%m/%Y")
+        default_index = month_options_labels.index(default_label) if default_label in month_options_labels else 0
 
-        meses_nome = {
-            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
-        }
-
-        col_mes_ref, col_ano_ref = st.columns([2, 1])
-
-        with col_mes_ref:
-            mes_ref = st.selectbox(
-                "Mês de referência",
-                options=list(meses_nome.keys()),
-                index=today.month - 1,
-                format_func=lambda m: meses_nome[m],
-            )
-
-        anos_disponiveis_ref = list(range(today.year - 5, today.year + 6))
-
-        with col_ano_ref:
-            ano_ref = st.selectbox(
-                "Ano",
-                options=anos_disponiveis_ref,
-                index=anos_disponiveis_ref.index(today.year),
-            )
-
-        ref_date = date(ano_ref, mes_ref, 1)
-        st.markdown("---")
+        ref_month_label = st.selectbox(
+            "Mês de referência",
+            month_options_labels,
+            index=default_index,
+        )
+        ref_date = parse_month_option(ref_month_label)
     
         # Categorias pré-definidas
         income_categories = [
@@ -529,6 +573,7 @@ def main():
     
         expense_categories = [
             "Mercado",
+            "Compras",
             "Condomínio",
             "Luz",
             "Internet",
@@ -553,76 +598,111 @@ def main():
             "Outra"
         ]
     
-        st.header("Novo lançamento")
-    
-        # 🔹 Tipo agora tem 3 opções
-        t_type = st.radio("Tipo", ["entrada", "saida", "investimento"], horizontal=True)
-    
+        # --- NOVO LANÇAMENTO ---
+        st.markdown("<hr style='margin: 0.75rem 0;'>", unsafe_allow_html=True)
+        st.subheader("Novo lançamento")
+        
+        # -------------------------------------------
+        # 1) Tipo (reativo)
+        # -------------------------------------------
+        t_type = st.radio(
+            "Tipo",
+            ["entrada", "saida", "investimento"],
+            horizontal=True,
+        )
+        
+        # Divisor
+        st.markdown("<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>", unsafe_allow_html=True)
+        
+        # -------------------------------------------
+        # 2) Forma de pagamento (só para SAÍDA)
+        # -------------------------------------------
+        if t_type == "saida":
+            payment_type = st.selectbox(
+                "Forma de pagamento",
+                ["Conta", "Cartão de crédito", "Dinheiro", "Pix"],
+            )
+        else:
+            payment_type = "Conta"
+        
+        # Deve mostrar campos de cartão?
+        show_card_fields = (t_type == "saida" and payment_type == "Cartão de crédito")
+        
+        # Outro divisor
+        st.markdown("<hr style='margin-top:0; margin-bottom:12px; opacity:0.35;'>", unsafe_allow_html=True)
+        
+        # -------------------------------------------
+        # 3) FORMULÁRIO (limpa depois de salvar)
+        # -------------------------------------------
         with st.form("novo_lancamento", clear_on_submit=True):
-    
-            # 🔹 Seleção dinâmica de categorias
+        
+            # Categorias dinâmicas
             if t_type == "entrada":
                 cat_choice = st.selectbox("Categoria", income_categories + ["Outra"])
             elif t_type == "saida":
                 cat_choice = st.selectbox("Categoria", expense_categories + ["Outra"])
-            else:  # investimento
+            else:
                 cat_choice = st.selectbox("Categoria", investment_categories)
-    
-            # Se escolher "Outra", mostra campo manual
+        
             if cat_choice == "Outra":
                 category = st.text_input("Categoria personalizada")
             else:
                 category = cat_choice
-    
-            # 🔹 Data no formato BR
-            d = st.date_input(
-                "Data",
-                value=today,
-                format="DD/MM/YYYY",
-                key="data_lanc"
-            )
-    
-            # 🔹 Campo Valor (como string BR)
+        
+            # Data
+            d = st.date_input("Data", value=today, format="DD/MM/YYYY")
+        
+            # Valor (sempre aparece)
             valor_str = st.text_input("Valor (R$)", value="", placeholder="0,00")
-    
-            # 🔹 Forma de pagamento (só aparece para saída e entrada)
-            if t_type in ["entrada", "saida"]:
-                payment_type = st.selectbox(
-                    "Forma de pagamento",
-                    ["Conta", "Cartão de crédito", "Dinheiro", "Pix"]
-                )
+        
+            # -------------------------------------------
+            # Campos de cartão — SÓ aparecem se for saída + cartão
+            # -------------------------------------------
+            if show_card_fields:
+                col_parc, col_card = st.columns([1, 2])
+        
+                with col_parc:
+                    installments = st.number_input(
+                        "Parcelas",
+                        min_value=1,
+                        value=1,
+                        step=1,
+                    )
+        
+                with col_card:
+                    card_name = st.text_input("Cartão")
             else:
-                payment_type = "Conta"   # investimento sai sempre da conta
-    
-            card_name = ""
-            installments = 1
-    
-            if payment_type == "Cartão de crédito":
-                card_name = st.text_input("Nome do cartão")
-                installments = st.number_input("Parcelas", min_value=1, value=1, step=1)
-    
+                installments = 1
+                card_name = ""
+        
+            # Descrição
             description = st.text_area("Descrição (opcional)")
-    
-            submitted = st.form_submit_button("Salvar lançamento")
-    
-            if submitted:
-                amount = parse_brl_to_float(valor_str)
-    
-                if amount > 0 and category.strip():
-                    insert_transaction(
-                        user_id,   # <--- muito importante
-                        t_type,
-                        category,
-                        d,
-                        amount,
-                        payment_type,
-                        card_name,
-                        installments,
-                        description
-)
-                    st.success("Lançamento salvo com sucesso!")
-                else:
-                    st.error("Preencha categoria e valor maior que zero.")
+        
+            # Botão do form
+            submitted = st.form_submit_button("Salvar lançamento", use_container_width=True)
+        
+        # -------------------------------------------
+        # PROCESSAMENTO DO ENVIO
+        # -------------------------------------------
+        if submitted:
+            amount = parse_brl_to_float(valor_str)
+        
+            if amount > 0 and category.strip():
+                insert_transaction(
+                    user_id,
+                    t_type,
+                    category,
+                    d,
+                    amount,
+                    payment_type,
+                    card_name,
+                    installments,
+                    description,
+                )
+                st.success("Lançamento salvo com sucesso!")
+                st.rerun()
+            else:
+                st.error("Preencha categoria e valor maior que zero.")
 
     if "user_id" not in st.session_state:
         st.error("Erro: usuário não autenticado. Volte para a tela de login.")
@@ -727,8 +807,7 @@ def main():
             # -------- Gráfico em barras (vermelho) --------
             df_cat_chart = df_cat.set_index("category")
     
-            import altair as alt
-    
+          
             chart = (
                 alt.Chart(df_cat_chart.reset_index())
                 .mark_bar(color="#ff4d4d")  # barras vermelhas
@@ -778,66 +857,75 @@ def main():
         
     with col_g2:
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas x Investimentos)")
+
         if not df_hist.empty:
-            # df_hist vem como pivot (index = ym, colunas = tipos)
-            df_hist_chart = df_hist.copy()
-    
-            # Garante datetime e cria label de mês
-            df_hist_chart.index = pd.to_datetime(df_hist_chart.index)
-            df_hist_chart["mes"] = df_hist_chart.index.strftime("%m/%y")
-    
-            # Renomeia a coluna de investimento para um nome mais amigável
-            if "investimento" in df_hist_chart.columns:
-                df_hist_chart = df_hist_chart.rename(columns={"investimento": "Investimentos"})
-    
-            # Deixa em formato longo para o Altair
-            df_long = df_hist_chart.melt(
-                id_vars="mes",
-                var_name="Tipo",
-                value_name="Valor"
+            df_pivot = df_hist.copy()
+            df_pivot.index = pd.to_datetime(df_pivot.index)
+            df_pivot = df_pivot.sort_index()
+
+            for col in ["Receitas", "Despesas", "Investimentos"]:
+                if col not in df_pivot.columns:
+                    df_pivot[col] = 0.0
+
+            df_pivot = df_pivot[["Receitas", "Despesas", "Investimentos"]].apply(
+                pd.to_numeric, errors="coerce"
+            ).fillna(0.0)
+
+            meses_range = pd.date_range(
+                start=(ref_date - relativedelta(months=5)).replace(day=1),
+                end=ref_date.replace(day=1),
+                freq="MS",
             )
-    
-            # Gráfico de linhas com cores específicas
+            df_pivot = df_pivot.reindex(meses_range, fill_value=0.0)
+
+            df_hist_chart = df_pivot.reset_index().rename(columns={"index": "ym"})
+            df_hist_chart["mes_label"] = df_hist_chart["ym"].dt.strftime("%m/%y")
+
+            df_long = df_hist_chart.melt(
+                id_vars=["ym", "mes_label"],
+                var_name="Tipo",
+                value_name="Valor",
+            )
+
+            month_order = df_hist_chart["mes_label"].tolist()
+
             chart_hist = (
                 alt.Chart(df_long)
                 .mark_line(point=True)
                 .encode(
-                    x=alt.X("mes:N", title="Mês"),
+                    x=alt.X("mes_label:N", title="Mês", sort=month_order),
                     y=alt.Y("Valor:Q", title="Valor (R$)"),
                     color=alt.Color(
                         "Tipo:N",
                         title="Tipo",
                         scale=alt.Scale(
-                            domain=["Receitas", "Investimentos", "Despesas"],
-                            range=["#3b82f6", "#22c55e", "#ef4444"],  # azul, verde, vermelho
+                            domain=["Receitas", "Despesas", "Investimentos"],
+                            range=["#3b82f6", "#ef4444", "#22c55e"],
                         ),
                     ),
                     tooltip=[
-                        alt.Tooltip("mes:N", title="Mês"),
+                        alt.Tooltip("mes_label:N", title="Mês"),
                         alt.Tooltip("Tipo:N", title="Tipo"),
                         alt.Tooltip("Valor:Q", title="Valor", format=",.2f"),
                     ],
                 )
-                .properties(
-                    width="container",
-                    height=320,
-                )
+                .properties(width="container", height=320)
             )
-    
+
             st.altair_chart(chart_hist, use_container_width=True)
-    
-            # --- Tabela formatada em BRL ---
-            df_hist_tab = df_hist_chart.set_index("mes").drop(columns=[], errors="ignore")
-            df_hist_fmt = df_hist_tab.copy()
-            for col in df_hist_fmt.columns:
-                df_hist_fmt[col] = df_hist_fmt[col].apply(
-                    lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-    
-            df_hist_fmt = df_hist_fmt.rename_axis("Mês").reset_index()
-            st.dataframe(df_hist_fmt, use_container_width=True)
+
+            df_table_fmt = df_pivot.copy()
+            for col in df_table_fmt.columns:
+                df_table_fmt[col] = df_table_fmt[col].apply(format_brl)
+
+            df_table_fmt = df_table_fmt.rename_axis("Mês").reset_index()
+            df_table_fmt["Mês"] = pd.to_datetime(df_table_fmt["Mês"]).dt.strftime("%m/%y")
+
+            st.dataframe(df_table_fmt, use_container_width=True, hide_index=True)
+
         else:
             st.info("Ainda não há dados suficientes para histórico.")
+
 
             
         st.markdown("---")
@@ -846,29 +934,30 @@ def main():
     st.markdown("### Últimos lançamentos")
 
     if not df.empty:
-        # pega os 20 últimos
-        # 🔹 Ordem personalizada para o tipo:
-        # entrada → investimento → saída
-        type_order = {
-            "entrada": 0,
-            "investimento": 1,
-            "saida": 2,
-        }
 
-        df_sorted = df.copy()
-        df_sorted["type_order"] = df_sorted["type"].map(type_order).fillna(99)
+        # 🔹 função auxiliar para pegar últimos N de um tipo
+        def get_last_n(df_base, tipo, n=10):
+            df_tipo = df_base[df_base["type"] == tipo].copy()
+            if df_tipo.empty:
+                return df_tipo
+            # ordena por data (mais recente primeiro) e pega N
+            return df_tipo.sort_values(by="date", ascending=False).head(n)
 
-        # 🔹 Ordenação final:
-        # 1) Tipo (ordem personalizada)
-        # 2) Categoria (A → Z)
-        # 3) Data (mais recente primeiro)
-        df_sorted = df_sorted.sort_values(
-            by=["type_order", "category", "date"],
-            ascending=[True, True, False],
-        ).head(20)
+        # 🔹 últimos 10 de cada tipo
+        df_ult_entrada = get_last_n(df, "entrada", 20)
+        df_ult_saida = get_last_n(df, "saida", 20)
+        df_ult_invest = get_last_n(df, "investimento", 20)
 
-        # remove coluna auxiliar
-        df_sorted = df_sorted.drop(columns=["type_order"])
+        # 🔹 concatena mantendo ordem: entrada → investimento → saída
+        df_sorted = pd.concat(
+            [df_ult_entrada, df_ult_invest, df_ult_saida],
+            ignore_index=True
+        )
+
+        if df_sorted.empty:
+            st.info("Ainda não há lançamentos suficientes para exibir nesta seção.")
+            return
+
 
         # Tabela para visualização (read-only), com data e valor formatados
         df_view = df_sorted.copy()
@@ -925,7 +1014,10 @@ def main():
                 }
             )
 
-
+            # 🔹 Formata o valor como texto BRL para edição (permite vírgula e ponto)
+            df_edit["Valor"] = df_edit["Valor"].apply(
+                lambda v: f"{float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            )
 
             edited_df = st.data_editor(
                 df_edit,
@@ -935,7 +1027,11 @@ def main():
                 column_config={
                     "ID": st.column_config.NumberColumn("ID", disabled=True),
                     "Data": st.column_config.DateColumn("Data"),
-                    "Valor": st.column_config.NumberColumn("Valor", step=10.0, format="%.2f"),
+                    # 🔹 Agora é TextColumn para aceitar vírgula/ponto
+                    "Valor": st.column_config.TextColumn(
+                        "Valor (R$)",
+                        help="Use vírgula como separador decimal (ex: 1.234,56)."
+                    ),
                     "Parcelas": st.column_config.NumberColumn("Parcelas", step=1),
                 },
             )
@@ -958,7 +1054,9 @@ def main():
 
                 # converte tipos
                 to_update["date"] = pd.to_datetime(to_update["date"]).dt.date.apply(lambda d: d.isoformat())
-                to_update["amount"] = to_update["amount"].astype(float)
+
+                # 🔹 Converte string BRL para float usando sua função
+                to_update["amount"] = to_update["amount"].apply(parse_brl_to_float).astype(float)
                 to_update["installments"] = to_update["installments"].astype(int)
 
                 conn = get_connection()
@@ -988,6 +1086,7 @@ def main():
 
                 st.success("Alterações salvas com sucesso!")
                 st.rerun()
+
     else:
         st.info("Nenhum lançamento cadastrado ainda.")
 
@@ -1020,46 +1119,35 @@ def render_analises(df):
     })
 
     # Formatação moeda
-    tabela_fmt = tabela_yoy.applymap(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
+    tabela_fmt = tabela_yoy.apply(lambda col: col.map(format_brl))
+    
     st.dataframe(tabela_fmt, use_container_width=True)
 
-   # Gráfico YOY (agrupado e responsivo)
+    # Gráfico YOY (agrupado e responsivo)
     chart_yoy = (
         alt.Chart(df_yoy)
         .mark_bar()
         .encode(
             x=alt.X("year:N", title="Ano"),
             y=alt.Y("amount:Q", title="Valor (R$)"),
-            color=alt.Color("type:N", title="Tipo"),
+            xOffset="type",                                # 👉 BARRAS LADO A LADO
+            color=alt.Color(
+                "type:N",
+                title="Tipo",
+                scale=alt.Scale(
+                    domain=["entrada", "saida", "investimento"],
+                    range=["#3b82f6", "#ef4444", "#22c55e"],  # azul, vermelho, verde
+                ),
+            ),
             tooltip=["year:N", "type:N", "amount:Q"],
         )
         .properties(
-            width="container",   # ocupa a largura disponível
+            width="container",
             height=320
         )
     )
     
     st.altair_chart(chart_yoy, use_container_width=True)
-
-
-    st.markdown("---")
-
-    # -----------------------------------
-    # 2️⃣ DESPESAS POR FORMA DE PAGAMENTO
-    # -----------------------------------
-    st.subheader("💳 Despesas por forma de pagamento")
-
-    df_pag = df[df["type"] == "saida"].groupby("payment_type")["amount"].sum().reset_index()
-
-    df_pag["amount_fmt"] = df_pag["amount"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-    st.dataframe(df_pag.rename(columns={
-        "payment_type": "Forma de Pagamento",
-        "amount_fmt": "Total (R$)"
-    })[["Forma de Pagamento", "Total (R$)"]], use_container_width=True)
-
-    st.bar_chart(df_pag.set_index("payment_type")["amount"])
 
     st.markdown("---")
 
@@ -1083,7 +1171,7 @@ def render_analises(df):
     #  - saídas cuja categoria é "Pagamento de Cartão"
     df_cc = df_temp[
         (df_temp["type"] == "saida") & (
-            (df_temp["payment_type"] == "Cartão de crédito") |
+            (df_temp["payment_type"] == "Conta") &
             (df_temp["category_norm"] == "pagamento de cartão")
         )
     ].copy()
@@ -1135,7 +1223,8 @@ def render_analises(df):
                 alt.Chart(df_cc_mes)
                 .mark_bar()
                 .encode(
-                    x=alt.X("mes_label:N", title="Mês"),
+                    x=alt.X("mes_label:N", title="Mês",
+                           sort=["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]),
                     y=alt.Y("amount:Q", title="Total relacionado a cartão (R$)"),
                     tooltip=[
                         alt.Tooltip("mes_label:N", title="Mês"),
