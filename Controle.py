@@ -13,8 +13,6 @@ from cartao import pagina_cartao
 st.set_page_config(
     page_title="Controle Financeiro",
     page_icon="💰",
-    layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -252,28 +250,6 @@ def get_month_range(target_date=None):
     last_day = next_month - relativedelta(days=1)
     return first_day, last_day
 
-
-def build_month_options(df: pd.DataFrame, months_back: int = 23):
-    """
-    Retorna opções únicas de mês/ano para o seletor, no formato MM/AAAA.
-    Inclui meses dos dados + janela recente, em ordem decrescente.
-    """
-    today = date.today().replace(day=1)
-    months = {today - relativedelta(months=i) for i in range(months_back + 1)}
-
-    if df is not None and not df.empty and "date" in df.columns:
-        datas = pd.to_datetime(df["date"], errors="coerce").dropna()
-        for d in datas:
-            months.add(d.date().replace(day=1))
-
-    ordered = sorted(months, reverse=True)
-    return ordered
-
-
-def parse_month_option(option: str):
-    mes, ano = option.split("/")
-    return date(int(ano), int(mes), 1)
-
 def compute_summary(df, ref_date):
     if df.empty:
         return {
@@ -384,22 +360,6 @@ def apply_custom_style():
             box-sizing: border-box;
         }
 
-        .block-container {
-            max-width: 100% !important;
-            padding-top: 1.2rem;
-            padding-left: 2rem;
-            padding-right: 2rem;
-            padding-bottom: 2rem;
-        }
-
-        section[data-testid="stSidebar"] {
-            min-width: 290px;
-        }
-
-        [data-testid="stHorizontalBlock"] {
-            align-items: stretch;
-        }
-
         /* Fundo geral */
         .stApp {
             background: radial-gradient(circle at top left, #0f172a 0, #020617 45%, #020617 100%);
@@ -506,6 +466,12 @@ def apply_custom_style():
 # ---------- App Streamlit ----------
 
 def main():
+    # você já chamou st.set_page_config lá em cima do arquivo;
+    st.set_page_config(
+        page_title="Controle Financeiro",
+        page_icon="💰",
+    )
+  
     apply_custom_style()
     init_db()
 
@@ -523,7 +489,7 @@ def main():
     # --- Navegação entre páginas ---
     pagina = st.sidebar.radio(
         "Navegação",
-        ["Dashboard", "Análises", "Consulta de Tabelas", "Cartão de Crédito"],
+        ["Dashboard", "Análises", "Tabelas", "Cartão de Crédito"],
         horizontal=False
     )
 
@@ -538,7 +504,7 @@ def main():
         return
 
     # 👉 Se for consulta de tabelas, chama o módulo e não renderiza o dashboard
-    if pagina == "Consulta de Tabelas":
+    if pagina == "Tabelas":
         pagina_consulta_tabelas(get_connection)
         return
     # 👉 Se for cartão de crédito, chama o módulo e não renderiza o dashboard
@@ -550,17 +516,12 @@ def main():
     with st.sidebar:
         st.header("Filtros")
         today = date.today()
-        month_options_dates = build_month_options(df)
-        month_options_labels = [d.strftime("%m/%Y") for d in month_options_dates]
-        default_label = today.replace(day=1).strftime("%m/%Y")
-        default_index = month_options_labels.index(default_label) if default_label in month_options_labels else 0
-
-        ref_month_label = st.selectbox(
+        ref_date = st.date_input(
             "Mês de referência",
-            month_options_labels,
-            index=default_index,
+            value=today,
+            format="DD/MM/YYYY"
         )
-        ref_date = parse_month_option(ref_month_label)
+       # st.markdown("---")
     
         # Categorias pré-definidas
         income_categories = [
@@ -727,7 +688,7 @@ def main():
             </div>
             <div>
                 <span class="cf-pill">
-                     Mês atual: {ref_date.strftime("%m/%Y")}
+                     Mês atual: {ref_date.strftime("%d/%m/%Y")}
                 </span>
             </div>
         </div>
@@ -857,72 +818,105 @@ def main():
         
     with col_g2:
         st.markdown("#### Histórico de 6 meses (Receitas x Despesas x Investimentos)")
-
+    
         if not df_hist.empty:
+            # =========================
+            # 0) NORMALIZA O PIVOT (ROBUSTO)
+            # =========================
             df_pivot = df_hist.copy()
             df_pivot.index = pd.to_datetime(df_pivot.index)
             df_pivot = df_pivot.sort_index()
-
+    
+            # padroniza nomes vindos do pivot: entrada/saida/investimento -> Receitas/Despesas/Investimentos
+            df_pivot = df_pivot.rename(columns={
+                "entrada": "Receitas",
+                "saida": "Despesas",
+                "investimento": "Investimentos",
+            })
+    
+            # garante que as 3 colunas existam SEMPRE (mesmo que não haja dados no período)
             for col in ["Receitas", "Despesas", "Investimentos"]:
                 if col not in df_pivot.columns:
                     df_pivot[col] = 0.0
-
-            df_pivot = df_pivot[["Receitas", "Despesas", "Investimentos"]].apply(
-                pd.to_numeric, errors="coerce"
-            ).fillna(0.0)
-
-            meses_range = pd.date_range(
-                start=(ref_date - relativedelta(months=5)).replace(day=1),
-                end=ref_date.replace(day=1),
-                freq="MS",
+    
+            # garante numérico e sem NaN
+            df_pivot[["Receitas", "Despesas", "Investimentos"]] = (
+                df_pivot[["Receitas", "Despesas", "Investimentos"]]
+                .apply(pd.to_numeric, errors="coerce")
+                .fillna(0.0)
             )
-            df_pivot = df_pivot.reindex(meses_range, fill_value=0.0)
-
-            df_hist_chart = df_pivot.reset_index().rename(columns={"index": "ym"})
-            df_hist_chart["mes_label"] = df_hist_chart["ym"].dt.strftime("%m/%y")
-
+    
+            # mantém só as colunas do gráfico/tabela, na ordem desejada
+            df_pivot = df_pivot[["Receitas", "Despesas", "Investimentos"]]
+    
+            # =========================
+            # 1) GRÁFICO
+            # =========================
+            df_hist_chart = df_pivot.reset_index()
+    
+            # após reset_index, a coluna do índice pode ser "index" ou manter o nome
+            if "index" in df_hist_chart.columns and "ym" not in df_hist_chart.columns:
+                df_hist_chart = df_hist_chart.rename(columns={"index": "ym"})
+            elif "ym" not in df_hist_chart.columns:
+                df_hist_chart = df_hist_chart.rename(columns={df_hist_chart.columns[0]: "ym"})
+    
+            # normaliza para início do mês
+            df_hist_chart["ym"] = pd.to_datetime(df_hist_chart["ym"]).dt.to_period("M").dt.to_timestamp()
+    
             df_long = df_hist_chart.melt(
-                id_vars=["ym", "mes_label"],
+                id_vars="ym",
                 var_name="Tipo",
-                value_name="Valor",
+                value_name="Valor"
             )
-
-            month_order = df_hist_chart["mes_label"].tolist()
-
+    
+            df_long["Valor"] = pd.to_numeric(df_long["Valor"], errors="coerce").fillna(0.0)
+    
+            # 1 ponto por mês/tipo
+            df_long = df_long.groupby(["ym", "Tipo"], as_index=False)["Valor"].sum()
+    
+            # ticks exatamente nos meses existentes
+            meses = sorted(df_long["ym"].unique().tolist())
+    
             chart_hist = (
                 alt.Chart(df_long)
                 .mark_line(point=True)
                 .encode(
-                    x=alt.X("mes_label:N", title="Mês", sort=month_order),
+                    x=alt.X("ym:T", title="Mês", axis=alt.Axis(format="%m/%y", values=meses)),
                     y=alt.Y("Valor:Q", title="Valor (R$)"),
                     color=alt.Color(
                         "Tipo:N",
                         title="Tipo",
                         scale=alt.Scale(
                             domain=["Receitas", "Despesas", "Investimentos"],
-                            range=["#3b82f6", "#ef4444", "#22c55e"],
+                            range=["#22c55e", "#ef4444", "#3b82f6"]
                         ),
                     ),
                     tooltip=[
-                        alt.Tooltip("mes_label:N", title="Mês"),
+                        alt.Tooltip("ym:T", title="Mês", format="%m/%y"),
                         alt.Tooltip("Tipo:N", title="Tipo"),
                         alt.Tooltip("Valor:Q", title="Valor", format=",.2f"),
                     ],
                 )
                 .properties(width="container", height=320)
             )
-
+    
             st.altair_chart(chart_hist, use_container_width=True)
-
+    
+            # =========================
+            # 2) TABELA RESUMO (MESMO PIVOT NORMALIZADO)
+            # =========================
             df_table_fmt = df_pivot.copy()
+    
             for col in df_table_fmt.columns:
-                df_table_fmt[col] = df_table_fmt[col].apply(format_brl)
-
+                df_table_fmt[col] = df_table_fmt[col].apply(
+                    lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                )
+    
             df_table_fmt = df_table_fmt.rename_axis("Mês").reset_index()
             df_table_fmt["Mês"] = pd.to_datetime(df_table_fmt["Mês"]).dt.strftime("%m/%y")
-
+    
             st.dataframe(df_table_fmt, use_container_width=True, hide_index=True)
-
+    
         else:
             st.info("Ainda não há dados suficientes para histórico.")
 
